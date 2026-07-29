@@ -3,13 +3,15 @@ import * as cheerio from "cheerio";
 import cors from "cors";
 
 const app = express();
-app.use(cors());
+app.use(cors()); // Cho phép điện thoại gọi API thoải mái
 
-// Khóa API LinkPreview mà bạn đã cung cấp!
-const LINKPREVIEW_KEY = "b41876e4602c4acc117320d63fb38935";
-const UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+// MẶT NẠ 1: Giả làm Trình duyệt web máy tính (Dùng để bung link)
+const WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
 
-// Bóc tách ID
+// MẶT NẠ 2: Giả làm Ứng dụng Shopee trên điện thoại Android (Bí quyết vượt tường lửa)
+const APP_UA = "Shopee/3.30.0 (Android; 10; Scale/2.00)";
+
+// Hàm bóc tách ID siêu chuẩn từ mọi loại link
 function extractShopeeIds(url) {
   try {
     const u = new URL(url);
@@ -22,91 +24,87 @@ function extractShopeeIds(url) {
     const opaanlpMatch = u.pathname.match(/\/opaanlp\/(\d+)\/(\d+)/);
     if (opaanlpMatch) return { shopId: opaanlpMatch[1], itemId: opaanlpMatch[2] };
 
-    const univMatch = u.pathname.match(/\/[a-zA-Z0-9-]+\/(\d+)\/(\d+)/);
-    if (univMatch && univMatch[1].length > 5 && univMatch[2].length > 5) {
-       return { shopId: univMatch[1], itemId: univMatch[2] };
-    }
     return { shopId: null, itemId: null };
   } catch (e) { return { shopId: null, itemId: null }; }
 }
 
 async function getShopeePreview(shortUrl) {
   try {
-    // 1. Bung link rút gọn
+    // 1. BUNG LINK RÚT GỌN (Đeo mặt nạ Web)
     const res = await fetch(shortUrl, {
       redirect: "follow",
-      headers: { "User-Agent": UA },
+      headers: { "User-Agent": WEB_UA },
     });
 
     const finalUrl = res.url;
     const ids = extractShopeeIds(finalUrl);
 
-    let title = "";
+    let title = "Sản phẩm Shopee";
     let image = "";
 
-    // 2. KẾT HỢP SỨC MẠNH: Dùng ID ghép thành Link Gốc và cho LinkPreview quét
+    // 2. TẤN CÔNG LẤY ẢNH VÀ TÊN SẢN PHẨM
     if (ids.shopId && ids.itemId) {
-      const realProductUrl = `https://shopee.vn/product/${ids.shopId}/${ids.itemId}`;
+      const apiUrl = `https://shopee.vn/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`;
       
-      // Mũi nhọn 1: Dùng API LinkPreview của bạn (Mạnh nhất)
+      // CHIẾN THUẬT A: Đeo mặt nạ App Shopee đâm thẳng vào kho dữ liệu
       try {
-        const lpRes = await fetch(`https://api.linkpreview.net/?key=${LINKPREVIEW_KEY}&q=${encodeURIComponent(realProductUrl)}`);
-        const lpData = await lpRes.json();
+        const apiRes = await fetch(apiUrl, {
+          headers: {
+            "User-Agent": APP_UA,
+            "X-API-Source": "rn",
+            "X-Shopee-Language": "vi"
+          },
+          signal: AbortSignal.timeout(4000) // CẦU DAO: Quá 4s tự ngắt, không để treo Server
+        });
+        const apiJson = await apiRes.json();
         
-        if (lpData.title && !lpData.title.includes("Shopee Việt Nam") && !lpData.title.includes("Mua và Bán")) {
-          title = lpData.title;
-          image = lpData.image;
+        if (apiJson && apiJson.data && apiJson.data.name) {
+          title = apiJson.data.name;
+          image = `https://cf.shopee.vn/file/${apiJson.data.image}`;
         }
-      } catch (e) { console.log("LinkPreview bị nghẽn"); }
-
-      // Mũi nhọn 2: Dự phòng API Dub.co miễn phí (Nếu LinkPreview hết lượt)
-      if (!title || !image) {
-        try {
-          const dubRes = await fetch(`https://api.dub.co/metatags?url=${encodeURIComponent(realProductUrl)}`);
-          const dubData = await dubRes.json();
-          if (dubData.title && !dubData.title.includes("Shopee Việt Nam")) {
-            title = dubData.title;
-            image = dubData.image;
-          }
-        } catch(e) {}
+      } catch (e) {
+        console.log("Bị chặn ở Chiến thuật A");
       }
 
-      // Mũi nhọn 3: Dự phòng chọc thẳng API Shopee
-      if (!title || !image) {
+      // CHIẾN THUẬT B: Nếu Chiến thuật A vẫn xịt, đi đường vòng qua trạm AllOrigins
+      if (title === "Sản phẩm Shopee" || image === "") {
         try {
-          const apiRes = await fetch(`https://shopee.vn/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`, {
-            headers: { "User-Agent": UA }
+          const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`, {
+             signal: AbortSignal.timeout(5000) // Cầu dao dự phòng
           });
-          const apiJson = await apiRes.json();
-          if (apiJson && apiJson.data) {
-            title = apiJson.data.name || title;
-            image = apiJson.data.image ? `https://cf.shopee.vn/file/${apiJson.data.image}` : image;
+          const proxyJson = await proxyRes.json();
+          
+          if (proxyJson && proxyJson.data && proxyJson.data.name) {
+            title = proxyJson.data.name;
+            image = `https://cf.shopee.vn/file/${proxyJson.data.image}`;
           }
-        } catch (e) {}
+        } catch (e) {
+          console.log("Bị chặn ở Chiến thuật B");
+        }
       }
     }
 
-    // 3. Phương án vét đáy: Tự chế tên từ link nếu cả 3 mũi nhọn đều xịt
-    if (!title || title.includes("Shopee") || title === "") {
+    // 3. VÉT ĐÁY: Nếu Shopee sập hoàn toàn, tự chế Tên Sản Phẩm từ đường link
+    if (title === "Sản phẩm Shopee" || title === "") {
         const slugMatch = finalUrl.match(/shopee\.vn\/([^?]+)-i\./i);
         if(slugMatch) {
-            title = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ');
-            title = title.charAt(0).toUpperCase() + title.slice(1);
-        } else {
-            title = "Sản phẩm Shopee";
+            title = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ').toUpperCase();
         }
     }
 
     return { finalUrl, title, image, shopId: ids.shopId, itemId: ids.itemId };
+    
   } catch (error) {
     return { finalUrl: shortUrl, title: "Sản phẩm Shopee", image: "", error: error.message };
   }
 }
 
+// BẬT MÁY CHỦ LẮNG NGHE ĐIỆN THOẠI CỦA BẠN GỌI TỚI
 app.get("/preview", async (req, res) => {
   try {
     const url = req.query.url;
-    if (!url || typeof url !== "string") return res.status(400).json({ error: "Thiếu URL" });
+    if (!url) return res.status(400).json({ error: "Thiếu URL" });
+    
     const data = await getShopeePreview(url);
     res.json(data);
   } catch (err) {
@@ -115,4 +113,4 @@ app.get("/preview", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`API chạy tại cổng ${PORT}`));
+app.listen(PORT, () => console.log(`Siêu máy chủ săn sale đã chạy tại cổng ${PORT}`));
