@@ -9,17 +9,26 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/
 
 function extractShopeeIds(url) {
   const u = new URL(url);
+  
+  // Dạng 1: /product/SHOPID/ITEMID
   const productMatch = u.pathname.match(/\/product\/(\d+)\/(\d+)/);
   if (productMatch) return { shopId: productMatch[1], itemId: productMatch[2] };
 
+  // Dạng 2: -i.SHOPID.ITEMID
   const oldMatch = u.pathname.match(/-i\.(\d+)\.(\d+)/);
   if (oldMatch) return { shopId: oldMatch[1], itemId: oldMatch[2] };
 
-  return { shopId: null, itemId: null };
-}
+  // Dạng 3 (MỚI): /opaanlp/SHOPID/ITEMID (Chính là link của bạn)
+  const opaanlpMatch = u.pathname.match(/\/opaanlp\/(\d+)\/(\d+)/);
+  if (opaanlpMatch) return { shopId: opaanlpMatch[1], itemId: opaanlpMatch[2] };
 
-function pickMeta($, key) {
-  return $(`meta[property="${key}"]`).attr("content") || $(`meta[name="${key}"]`).attr("content") || "";
+  // Dạng 4 (Dự phòng thêm cho các landing page khác của affiliate): /universal-link/SHOPID/ITEMID
+  const univMatch = u.pathname.match(/\/[a-zA-Z0-9-]+\/(\d+)\/(\d+)/);
+  if (univMatch && univMatch[1].length > 5 && univMatch[2].length > 5) {
+     return { shopId: univMatch[1], itemId: univMatch[2] };
+  }
+
+  return { shopId: null, itemId: null };
 }
 
 async function getShopeePreview(shortUrl) {
