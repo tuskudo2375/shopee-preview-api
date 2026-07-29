@@ -5,7 +5,7 @@ import cors from "cors";
 const app = express();
 app.use(cors());
 
-// BÍ QUYẾT TỐI THƯỢNG: NGỤY TRANG THÀNH GOOGLEBOT ĐỂ SHOPEE KHÔNG DÁM CHẶN
+// Ngụy trang thành Googlebot
 const UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
 function extractShopeeIds(url) {
@@ -17,6 +17,7 @@ function extractShopeeIds(url) {
     const oldMatch = u.pathname.match(/-i\.(\d+)\.(\d+)/);
     if (oldMatch) return { shopId: oldMatch[1], itemId: oldMatch[2] };
 
+    // Dạng Tracking Page của Shopee
     const opaanlpMatch = u.pathname.match(/\/opaanlp\/(\d+)\/(\d+)/);
     if (opaanlpMatch) return { shopId: opaanlpMatch[1], itemId: opaanlpMatch[2] };
 
@@ -30,36 +31,46 @@ function extractShopeeIds(url) {
 
 async function getShopeePreview(shortUrl) {
   try {
-    // Gọi Shopee với danh nghĩa Googlebot
+    // 1. Theo dấu đường link rút gọn
     const res = await fetch(shortUrl, {
       redirect: "follow",
-      headers: {
-        "User-Agent": UA,
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "vi-VN,vi;q=0.5"
-      },
+      headers: { "User-Agent": UA },
     });
 
     const finalUrl = res.url;
-    const html = await res.text();
-    const $ = cheerio.load(html);
     const ids = extractShopeeIds(finalUrl);
 
-    let title = $('meta[property="og:title"]').attr("content") || $('meta[name="twitter:title"]').attr("content") || $("title").text().trim();
-    let image = $('meta[property="og:image"]').attr("content") || $('meta[name="twitter:image"]').attr("content") || "";
+    let title = "Sản phẩm Shopee";
+    let image = "";
 
-    // Làm sạch tiêu đề nếu Shopee trả về tên chung chung
-    if (!title || title.includes("Shopee Việt Nam") || title.includes("Mua và Bán") || title === "Shopee") {
-        const slugMatch = finalUrl.match(/shopee\.vn\/([^?]+)-i\./i);
-        if(slugMatch) {
-            title = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ');
-            title = title.charAt(0).toUpperCase() + title.slice(1);
-        } else {
-            title = "Sản phẩm Shopee";
-        }
+    // 2. KHẮC PHỤC LỖI TRANG TRACKING: ÉP TRUY CẬP VÀO TRANG SẢN PHẨM GỐC
+    if (ids.shopId && ids.itemId) {
+      const realProductUrl = `https://shopee.vn/product/${ids.shopId}/${ids.itemId}`;
+      
+      try {
+        // Googlebot quét thẳng vào trang sản phẩm thật để lấy thông tin
+        const prodRes = await fetch(realProductUrl, {
+          headers: {
+            "User-Agent": UA,
+            "Accept-Language": "vi-VN,vi;q=0.9"
+          }
+        });
+        const prodHtml = await prodRes.text();
+        const $ = cheerio.load(prodHtml);
+
+        title = $('meta[property="og:title"]').attr("content") || $('meta[name="twitter:title"]').attr("content") || title;
+        image = $('meta[property="og:image"]').attr("content") || $('meta[name="twitter:image"]').attr("content") || image;
+      } catch(e) {
+        console.log("Lỗi khi quét HTML trang sản phẩm thật:", e.message);
+      }
     }
 
-    // Nếu vẫn không có ảnh (do Shopee render bằng React), dùng ID gọi thẳng API nội bộ bằng Googlebot
+    // Lọc tiêu đề rác
+    if (title.includes("Shopee Việt Nam") || title.includes("Mua và Bán") || title.length < 5) {
+        title = "Sản phẩm Shopee";
+    }
+
+    // 3. Dự phòng cấp 2: Nếu HTML xịt, gọi API (Lớp phòng thủ chống DataDome)
     if ((!image || image === "") && ids.itemId && ids.shopId) {
       try {
         const apiRes = await fetch(`https://shopee.vn/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`, {
