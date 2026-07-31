@@ -1,13 +1,13 @@
 import express from "express";
-import * as cheerio from "cheerio";
 import cors from "cors";
 
 const app = express();
-app.use(cors()); 
+app.use(cors());
 
-const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
+// Khóa API LinkPreview của bạn (Làm phương án dự phòng)
+const LP_KEY = "b41876e4602c4acc117320d63fb38935";
 
-// Hàm bóc tách ID siêu chuẩn
+// Hàm bóc tách ID siêu chuẩn từ Shopee
 function extractShopeeIds(url) {
   try {
     const u = new URL(url);
@@ -26,69 +26,72 @@ function extractShopeeIds(url) {
 
 async function getShopeePreview(shortUrl) {
   try {
-    // 1. RENDER GIẢI MÃ LINK RÚT GỌN / LINK TRACKING
+    // 1. Bung link rút gọn
     const res = await fetch(shortUrl, {
       redirect: "follow",
-      headers: { "User-Agent": UA },
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" },
     });
+    
+    let finalUrl = res.url;
+    const html = await res.text();
+    
+    // Đọc chuyển hướng ngầm của Shopee
+    const jsMatch = html.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
+    if (jsMatch) finalUrl = jsMatch[1];
 
-    const finalUrl = res.url;
     const ids = extractShopeeIds(finalUrl);
 
     let title = "Sản phẩm Shopee";
     let image = "";
 
-    // 2. KẾT HỢP MICROLINK API BẰNG LINK GỐC ĐÃ LÀM SẠCH
+    // 2. KẾT HỢP MICROLINK VÀ LINKPREVIEW ĐỂ QUÉT LINK SẢN PHẨM CHUẨN
     if (ids.shopId && ids.itemId) {
-      // Ghép thành link sản phẩm chuẩn để Microlink dễ đọc
-      const realProductUrl = `https://shopee.vn/product/${ids.shopId}/${ids.itemId}`;
+      const realUrl = `https://shopee.vn/product/${ids.shopId}/${ids.itemId}`;
       
+      // Mũi nhọn 1: Dùng Microlink (Bật chế độ prerender để chạy Javascript ngầm)
       try {
-        // Gọi Microlink với Cầu dao tự ngắt 6 giây chống treo Server
-        const mlRes = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(realProductUrl)}`, {
-            signal: AbortSignal.timeout(6000) 
+        const mlRes = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(realUrl)}&prerender=true`, {
+            signal: AbortSignal.timeout(7000) // Cầu dao 7 giây chống treo
         });
         const mlData = await mlRes.json();
-        
         if (mlData.status === 'success' && mlData.data) {
-            if (mlData.data.title && !mlData.data.title.includes("Shopee Việt Nam")) {
-                title = mlData.data.title;
-            }
-            if (mlData.data.image && mlData.data.image.url) {
-                image = mlData.data.image.url;
-            }
+            if (mlData.data.title && !mlData.data.title.includes("Shopee")) title = mlData.data.title;
+            if (mlData.data.image && mlData.data.image.url) image = mlData.data.image.url;
         }
-      } catch (e) {
-        console.log("Microlink phản hồi chậm hoặc bị lỗi ngắt kết nối");
+      } catch (e) { console.log("Microlink quá tải"); }
+
+      // Mũi nhọn 2: Dùng API LinkPreview của bạn (Nếu Microlink thất bại)
+      if (title === "Sản phẩm Shopee" || image === "") {
+         try {
+             const lpRes = await fetch(`https://api.linkpreview.net/?key=${LP_KEY}&q=${encodeURIComponent(realUrl)}`, {
+                 signal: AbortSignal.timeout(5000)
+             });
+             const lpData = await lpRes.json();
+             if (lpData.title && !lpData.title.includes("Shopee")) title = lpData.title;
+             if (lpData.image) image = lpData.image;
+         } catch(e) { console.log("LinkPreview quá tải"); }
       }
     }
 
-    // 3. PHƯƠNG ÁN DỰ PHÒNG CHỐNG CHÁY: Tự bóc tên từ URL
+    // 3. Tự chế Tên sản phẩm từ đường link nếu bị xịt hình ảnh
     if (title === "Sản phẩm Shopee" || title === "") {
         const slugMatch = finalUrl.match(/shopee\.vn\/([^?]+)-i\./i);
-        if (slugMatch) {
+        if(slugMatch) {
             title = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ').toUpperCase();
         }
     }
 
     return { finalUrl, title, image, shopId: ids.shopId, itemId: ids.itemId };
-    
   } catch (error) {
     return { finalUrl: shortUrl, title: "Sản phẩm Shopee", image: "", error: error.message };
   }
 }
 
 app.get("/preview", async (req, res) => {
-  try {
-    const url = req.query.url;
-    if (!url) return res.status(400).json({ error: "Thiếu URL" });
-    
-    const data = await getShopeePreview(url);
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: "Lỗi Server" });
-  }
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: "Thiếu URL" });
+  const data = await getShopeePreview(url);
+  res.json(data);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Siêu máy chủ đã chạy tại cổng ${PORT}`));
+app.listen(3000, () => console.log(`API đang chạy tại cổng 3000`));
