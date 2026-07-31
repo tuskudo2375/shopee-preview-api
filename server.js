@@ -3,15 +3,11 @@ import * as cheerio from "cheerio";
 import cors from "cors";
 
 const app = express();
-app.use(cors()); // Cho phép điện thoại gọi API thoải mái
+app.use(cors()); 
 
-// MẶT NẠ 1: Giả làm Trình duyệt web máy tính (Dùng để bung link)
-const WEB_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
 
-// MẶT NẠ 2: Giả làm Ứng dụng Shopee trên điện thoại Android (Bí quyết vượt tường lửa)
-const APP_UA = "Shopee/3.30.0 (Android; 10; Scale/2.00)";
-
-// Hàm bóc tách ID siêu chuẩn từ mọi loại link
+// Hàm bóc tách ID siêu chuẩn
 function extractShopeeIds(url) {
   try {
     const u = new URL(url);
@@ -30,10 +26,10 @@ function extractShopeeIds(url) {
 
 async function getShopeePreview(shortUrl) {
   try {
-    // 1. BUNG LINK RÚT GỌN (Đeo mặt nạ Web)
+    // 1. RENDER GIẢI MÃ LINK RÚT GỌN / LINK TRACKING
     const res = await fetch(shortUrl, {
       redirect: "follow",
-      headers: { "User-Agent": WEB_UA },
+      headers: { "User-Agent": UA },
     });
 
     const finalUrl = res.url;
@@ -42,52 +38,35 @@ async function getShopeePreview(shortUrl) {
     let title = "Sản phẩm Shopee";
     let image = "";
 
-    // 2. TẤN CÔNG LẤY ẢNH VÀ TÊN SẢN PHẨM
+    // 2. KẾT HỢP MICROLINK API BẰNG LINK GỐC ĐÃ LÀM SẠCH
     if (ids.shopId && ids.itemId) {
-      const apiUrl = `https://shopee.vn/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`;
+      // Ghép thành link sản phẩm chuẩn để Microlink dễ đọc
+      const realProductUrl = `https://shopee.vn/product/${ids.shopId}/${ids.itemId}`;
       
-      // CHIẾN THUẬT A: Đeo mặt nạ App Shopee đâm thẳng vào kho dữ liệu
       try {
-        const apiRes = await fetch(apiUrl, {
-          headers: {
-            "User-Agent": APP_UA,
-            "X-API-Source": "rn",
-            "X-Shopee-Language": "vi"
-          },
-          signal: AbortSignal.timeout(4000) // CẦU DAO: Quá 4s tự ngắt, không để treo Server
+        // Gọi Microlink với Cầu dao tự ngắt 6 giây chống treo Server
+        const mlRes = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(realProductUrl)}`, {
+            signal: AbortSignal.timeout(6000) 
         });
-        const apiJson = await apiRes.json();
+        const mlData = await mlRes.json();
         
-        if (apiJson && apiJson.data && apiJson.data.name) {
-          title = apiJson.data.name;
-          image = `https://cf.shopee.vn/file/${apiJson.data.image}`;
+        if (mlData.status === 'success' && mlData.data) {
+            if (mlData.data.title && !mlData.data.title.includes("Shopee Việt Nam")) {
+                title = mlData.data.title;
+            }
+            if (mlData.data.image && mlData.data.image.url) {
+                image = mlData.data.image.url;
+            }
         }
       } catch (e) {
-        console.log("Bị chặn ở Chiến thuật A");
-      }
-
-      // CHIẾN THUẬT B: Nếu Chiến thuật A vẫn xịt, đi đường vòng qua trạm AllOrigins
-      if (title === "Sản phẩm Shopee" || image === "") {
-        try {
-          const proxyRes = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`, {
-             signal: AbortSignal.timeout(5000) // Cầu dao dự phòng
-          });
-          const proxyJson = await proxyRes.json();
-          
-          if (proxyJson && proxyJson.data && proxyJson.data.name) {
-            title = proxyJson.data.name;
-            image = `https://cf.shopee.vn/file/${proxyJson.data.image}`;
-          }
-        } catch (e) {
-          console.log("Bị chặn ở Chiến thuật B");
-        }
+        console.log("Microlink phản hồi chậm hoặc bị lỗi ngắt kết nối");
       }
     }
 
-    // 3. VÉT ĐÁY: Nếu Shopee sập hoàn toàn, tự chế Tên Sản Phẩm từ đường link
+    // 3. PHƯƠNG ÁN DỰ PHÒNG CHỐNG CHÁY: Tự bóc tên từ URL
     if (title === "Sản phẩm Shopee" || title === "") {
         const slugMatch = finalUrl.match(/shopee\.vn\/([^?]+)-i\./i);
-        if(slugMatch) {
+        if (slugMatch) {
             title = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ').toUpperCase();
         }
     }
@@ -99,7 +78,6 @@ async function getShopeePreview(shortUrl) {
   }
 }
 
-// BẬT MÁY CHỦ LẮNG NGHE ĐIỆN THOẠI CỦA BẠN GỌI TỚI
 app.get("/preview", async (req, res) => {
   try {
     const url = req.query.url;
@@ -113,4 +91,4 @@ app.get("/preview", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Siêu máy chủ săn sale đã chạy tại cổng ${PORT}`));
+app.listen(PORT, () => console.log(`Siêu máy chủ đã chạy tại cổng ${PORT}`));
