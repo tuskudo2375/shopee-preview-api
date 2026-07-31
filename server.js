@@ -1,13 +1,12 @@
 import express from "express";
+import * as cheerio from "cheerio";
 import cors from "cors";
 
 const app = express();
 app.use(cors());
 
-// Khóa API LinkPreview của bạn (Làm phương án dự phòng)
-const LP_KEY = "b41876e4602c4acc117320d63fb38935";
+const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36";
 
-// Hàm bóc tách ID siêu chuẩn từ Shopee
 function extractShopeeIds(url) {
   try {
     const u = new URL(url);
@@ -26,59 +25,48 @@ function extractShopeeIds(url) {
 
 async function getShopeePreview(shortUrl) {
   try {
-    // 1. Bung link rút gọn
+    // 1. Bung link rút gọn / link tracking
     const res = await fetch(shortUrl, {
       redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36" },
+      headers: { "User-Agent": UA },
     });
-    
-    let finalUrl = res.url;
-    const html = await res.text();
-    
-    // Đọc chuyển hướng ngầm của Shopee
-    const jsMatch = html.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
-    if (jsMatch) finalUrl = jsMatch[1];
 
+    const finalUrl = res.url;
     const ids = extractShopeeIds(finalUrl);
 
     let title = "Sản phẩm Shopee";
     let image = "";
 
-    // 2. KẾT HỢP MICROLINK VÀ LINKPREVIEW ĐỂ QUÉT LINK SẢN PHẨM CHUẨN
+    // 2. Chọc nhanh vào API Shopee (Hy vọng không bị chặn)
     if (ids.shopId && ids.itemId) {
-      const realUrl = `https://shopee.vn/product/${ids.shopId}/${ids.itemId}`;
-      
-      // Mũi nhọn 1: Dùng Microlink (Bật chế độ prerender để chạy Javascript ngầm)
       try {
-        const mlRes = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(realUrl)}&prerender=true`, {
-            signal: AbortSignal.timeout(7000) // Cầu dao 7 giây chống treo
+        const apiRes = await fetch(`https://shopee.vn/api/v4/item/get?itemid=${ids.itemId}&shopid=${ids.shopId}`, {
+          headers: { "User-Agent": UA },
+          signal: AbortSignal.timeout(3000) // Ngắt nhanh trong 3 giây
         });
-        const mlData = await mlRes.json();
-        if (mlData.status === 'success' && mlData.data) {
-            if (mlData.data.title && !mlData.data.title.includes("Shopee")) title = mlData.data.title;
-            if (mlData.data.image && mlData.data.image.url) image = mlData.data.image.url;
+        const apiJson = await apiRes.json();
+        if (apiJson && apiJson.data) {
+          if (apiJson.data.name) title = apiJson.data.name;
+          if (apiJson.data.image) image = `https://cf.shopee.vn/file/${apiJson.data.image}`;
         }
-      } catch (e) { console.log("Microlink quá tải"); }
-
-      // Mũi nhọn 2: Dùng API LinkPreview của bạn (Nếu Microlink thất bại)
-      if (title === "Sản phẩm Shopee" || image === "") {
-         try {
-             const lpRes = await fetch(`https://api.linkpreview.net/?key=${LP_KEY}&q=${encodeURIComponent(realUrl)}`, {
-                 signal: AbortSignal.timeout(5000)
-             });
-             const lpData = await lpRes.json();
-             if (lpData.title && !lpData.title.includes("Shopee")) title = lpData.title;
-             if (lpData.image) image = lpData.image;
-         } catch(e) { console.log("LinkPreview quá tải"); }
+      } catch (e) {
+        // Bỏ qua nếu bị chặn
       }
     }
 
-    // 3. Tự chế Tên sản phẩm từ đường link nếu bị xịt hình ảnh
-    if (title === "Sản phẩm Shopee" || title === "") {
+    // 3. Xử lý logic tên nếu lấy lỗi
+    if (!title || title === "Sản phẩm Shopee" || title.includes("Shopee Việt Nam")) {
         const slugMatch = finalUrl.match(/shopee\.vn\/([^?]+)-i\./i);
-        if(slugMatch) {
+        if (slugMatch) {
             title = decodeURIComponent(slugMatch[1]).replace(/-/g, ' ').toUpperCase();
+        } else {
+            title = "Sản phẩm Shopee";
         }
+    }
+    
+    // Lọc logo rác của Shopee trả về
+    if (image.includes("ios_icon") || image.includes("shopee-mobilemall")) {
+        image = "";
     }
 
     return { finalUrl, title, image, shopId: ids.shopId, itemId: ids.itemId };
