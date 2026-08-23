@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+    <color name="ai_accent">#BCEFFF</color>
+    <color name="panel">#CC111214</color>
+    <color name="chip">#1C1F22</color>
+    <color name="launcher_bg">#050C15</color>
+</resources>
