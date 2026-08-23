@@ -33,6 +33,22 @@ jobs:
         run: gradle :app:assembleDebug --stacktrace
       - name: APK SHA256
         run: sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - name: Emulator smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r ai-composition-camera/app/build/outputs/apk/debug/app-debug.apk
+            adb shell pm grant com.phoneanh.aicompose android.permission.CAMERA
+            adb logcat -c
+            adb shell am start -W -n com.phoneanh.aicompose/.MainActivity
+            sleep 6
+            adb shell pidof com.phoneanh.aicompose
+            adb logcat -d | grep -E 'AICompose|FATAL EXCEPTION|AndroidRuntime' || true
       - uses: actions/upload-artifact@v4
         with:
           name: AICompositionCamera-debug
