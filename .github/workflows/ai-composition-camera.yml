@@ -31,7 +31,7 @@ jobs:
           gradle-version: '8.13'
       - name: Build and lint debug APK
         run: gradle :app:assembleDebug :app:lintDebug --stacktrace
-      - name: Verify Titus package and APK
+      - name: Verify Titus package, launcher and APK
         run: |
           APK='app/build/outputs/apk/debug/app-debug.apk'
           test -s "$APK"
@@ -39,8 +39,11 @@ jobs:
           unzip -t "$APK" >/dev/null
           grep -R "com.phoneanh.aicompose" app/src/main app/build.gradle.kts && exit 1 || true
           grep -R "com.titus.aicompose" app/src/main app/build.gradle.kts >/dev/null
+          grep -q '@drawable/titus_launcher' app/src/main/AndroidManifest.xml
+          test -s app/src/main/res/drawable/titus_launcher.xml
+          unzip -l "$APK" | grep -q 'titus_launcher'
       - uses: actions/upload-artifact@v4
         with:
-          name: Titus-AI-BoCuc-v0.1.3
+          name: Titus-AI-BoCuc-v0.1.4
           path: ai-composition-camera/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
