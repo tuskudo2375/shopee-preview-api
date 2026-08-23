@@ -6,6 +6,11 @@ on:
     paths:
       - 'ai-composition-camera/**'
       - '.github/workflows/ai-composition-camera.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ai-composition-camera/**'
+      - '.github/workflows/ai-composition-camera.yml'
 jobs:
   build:
     runs-on: ubuntu-latest
