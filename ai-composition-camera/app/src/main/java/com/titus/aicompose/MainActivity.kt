@@ -1,4 +1,4 @@
-package com.phoneanh.aicompose
+package com.titus.aicompose
 
 import android.Manifest
 import android.content.ContentValues
@@ -24,7 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import com.phoneanh.aicompose.databinding.ActivityMainBinding
+import com.titus.aicompose.databinding.ActivityMainBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.Executors
@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private var lastAutoZoomAt = 0L
 
     private val permission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startCamera() else Toast.makeText(this, "Cần quyền Camera để chạy AI Bố Cục", Toast.LENGTH_LONG).show()
+        if (granted) startCamera() else Toast.makeText(this, "Cần quyền Camera để chạy Titus AI Bố Cục", Toast.LENGTH_LONG).show()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
             view.setPadding(view.paddingLeft, bars.top + dp(6), view.paddingRight, bars.bottom)
             insets
         }
-        Log.i(tag, "app_start version=0.1.2 device=${android.os.Build.MANUFACTURER}/${android.os.Build.MODEL} sdk=${android.os.Build.VERSION.SDK_INT}")
+        Log.i(tag, "app_start brand=Titus version=0.1.3 package=com.titus.aicompose device=${android.os.Build.MANUFACTURER}/${android.os.Build.MODEL} sdk=${android.os.Build.VERSION.SDK_INT}")
         binding.previewView.implementationMode = androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE
         binding.previewView.scaleType = androidx.camera.view.PreviewView.ScaleType.FILL_CENTER
 
@@ -209,16 +209,16 @@ class MainActivity : AppCompatActivity() {
         val capture = imageCapture ?: return
         val name = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(System.currentTimeMillis())
         val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, "AICompose_$name")
+            put(MediaStore.MediaColumns.DISPLAY_NAME, "TitusAI_$name")
             put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/AIComposition")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/TitusAIComposition")
         }
         val options = ImageCapture.OutputFileOptions.Builder(contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values).build()
         capture.takePicture(options, ContextCompat.getMainExecutor(this), object : ImageCapture.OnImageSavedCallback {
             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
                 binding.shutterButton.performHapticFeedback(HapticFeedbackConstants.CONFIRM)
                 Log.i(tag, "photo_saved uri=${output.savedUri}")
-                Toast.makeText(this@MainActivity, "Đã lưu ảnh", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "Đã lưu ảnh Titus AI", Toast.LENGTH_SHORT).show()
             }
             override fun onError(exception: ImageCaptureException) {
                 Log.e(tag, "photo_failed", exception)

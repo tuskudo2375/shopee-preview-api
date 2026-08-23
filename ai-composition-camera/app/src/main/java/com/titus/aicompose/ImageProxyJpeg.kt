@@ -1,4 +1,4 @@
-package com.phoneanh.aicompose
+package com.titus.aicompose
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

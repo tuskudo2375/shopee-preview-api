@@ -1,4 +1,4 @@
-package com.phoneanh.aicompose
+package com.titus.aicompose
 
 data class NormalizedRect(val x: Float, val y: Float, val width: Float, val height: Float)
 data class NormalizedPoint(val x: Float, val y: Float)

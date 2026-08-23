@@ -23,7 +23,7 @@
         <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
             <androidx.camera.view.PreviewView android:id="@+id/previewView" android:layout_width="match_parent" android:layout_height="match_parent" />
             <View android:layout_width="match_parent" android:layout_height="112dp" android:layout_gravity="bottom" android:background="@drawable/preview_bottom_fade" />
-            <com.phoneanh.aicompose.CompositionOverlayView android:id="@+id/compositionOverlay" android:layout_width="match_parent" android:layout_height="match_parent" />
+            <com.titus.aicompose.CompositionOverlayView android:id="@+id/compositionOverlay" android:layout_width="match_parent" android:layout_height="match_parent" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="top" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="14dp" android:paddingTop="14dp" android:paddingEnd="14dp">
                 <ImageButton android:layout_width="36dp" android:layout_height="36dp" android:background="@drawable/circle_button_bg" android:contentDescription="Quay lại" android:padding="9dp" app:srcCompat="@drawable/ic_back" />
                 <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
@@ -61,6 +61,6 @@
     <LinearLayout android:id="@+id/modeBar" android:layout_width="0dp" android:layout_height="62dp" android:layout_marginStart="38dp" android:layout_marginEnd="38dp" android:layout_marginBottom="14dp" android:background="@drawable/mode_bar_bg" android:gravity="center" android:orientation="horizontal" android:padding="4dp" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent">
         <TextView style="@style/ModeTextActive" android:background="@drawable/mode_active_bg" android:text="Máy ảnh" />
         <TextView style="@style/ModeText" android:text="Album" />
-        <TextView style="@style/ModeText" android:text="Tôi" />
+        <TextView style="@style/ModeText" android:text="Titus" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

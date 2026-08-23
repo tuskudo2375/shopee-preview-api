@@ -1,13 +1,8 @@
-name: Build AI Composition Camera APK
+name: Build Titus AI Composition APK
 on:
   workflow_dispatch:
   push:
     branches: [ ai-composition-camera-build ]
-    paths:
-      - 'ai-composition-camera/**'
-      - '.github/workflows/ai-composition-camera.yml'
-  pull_request:
-    branches: [ main ]
     paths:
       - 'ai-composition-camera/**'
       - '.github/workflows/ai-composition-camera.yml'
@@ -31,14 +26,16 @@ jobs:
           gradle-version: '8.13'
       - name: Build and lint debug APK
         run: gradle :app:assembleDebug :app:lintDebug --stacktrace
-      - name: Verify APK
+      - name: Verify Titus package and APK
         run: |
           APK='app/build/outputs/apk/debug/app-debug.apk'
           test -s "$APK"
           sha256sum "$APK"
           unzip -t "$APK" >/dev/null
+          grep -R "com.phoneanh.aicompose" app/src/main app/build.gradle.kts && exit 1 || true
+          grep -R "com.titus.aicompose" app/src/main app/build.gradle.kts >/dev/null
       - uses: actions/upload-artifact@v4
         with:
-          name: AICompositionCamera-v0.1.2-polished
+          name: Titus-AI-BoCuc-v0.1.3
           path: ai-composition-camera/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
