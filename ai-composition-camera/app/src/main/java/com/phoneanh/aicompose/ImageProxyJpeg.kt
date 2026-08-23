@@ -9,7 +9,7 @@ import android.graphics.YuvImage
 import androidx.camera.core.ImageProxy
 import java.io.ByteArrayOutputStream
 
-fun ImageProxy.toAiJpeg(maxLongEdge: Int = 960, quality: Int = 76): ByteArray {
+fun ImageProxy.toAiJpeg(maxLongEdge: Int = 176, quality: Int = 32): ByteArray {
     val w = width
     val h = height
     val y = planes[0]

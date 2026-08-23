@@ -3,10 +3,9 @@ package com.phoneanh.aicompose
 import android.util.Base64
 import okhttp3.Call
 import okhttp3.Callback
-import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONObject
 import java.io.IOException
@@ -16,18 +15,21 @@ class CompositionApi {
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
     fun analyze(jpeg: ByteArray, currentZoom: Float, callback: (Result<CompositionResult>) -> Unit) {
-        val payload = JSONObject()
-            .put("image_base64", Base64.encodeToString(jpeg, Base64.NO_WRAP))
-            .put("mime_type", "image/jpeg")
-            .put("current_zoom", currentZoom)
+        val image = Base64.encodeToString(
+            jpeg,
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+        val url = ENDPOINT.toHttpUrl().newBuilder()
+            .addQueryParameter("image", image)
+            .addQueryParameter("zoom", currentZoom.toString())
+            .build()
 
         val request = Request.Builder()
-            .url(ENDPOINT)
-            .post(payload.toString().toRequestBody(JSON))
+            .url(url)
+            .get()
             .build()
 
         client.newCall(request).enqueue(object : Callback {
@@ -70,7 +72,6 @@ class CompositionApi {
     }
 
     companion object {
-        private val JSON = "application/json; charset=utf-8".toMediaType()
         const val ENDPOINT = "https://long-525p3v.v2.appdeploy.ai/api/composition/v1"
     }
 }
