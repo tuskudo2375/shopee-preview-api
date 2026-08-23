@@ -34,8 +34,8 @@ import kotlin.math.abs
 class MainActivity : AppCompatActivity() {
     private val tag = "AICompose"
     private lateinit var binding: ActivityMainBinding
+    private lateinit var webBridge: CompositionWebBridge
     private val cameraExecutor = Executors.newSingleThreadExecutor()
-    private val api = CompositionApi()
     private val requestInFlight = AtomicBoolean(false)
     private var camera: Camera? = null
     private var imageCapture: ImageCapture? = null
@@ -52,12 +52,13 @@ class MainActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        webBridge = CompositionWebBridge(this, binding.root)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(view.paddingLeft, bars.top + dp(6), view.paddingRight, bars.bottom)
             insets
         }
-        Log.i(tag, "app_start brand=Titus version=0.1.3 package=com.titus.aicompose device=${android.os.Build.MANUFACTURER}/${android.os.Build.MODEL} sdk=${android.os.Build.VERSION.SDK_INT}")
+        Log.i(tag, "app_start brand=Titus version=0.1.4 package=com.titus.aicompose device=${android.os.Build.MANUFACTURER}/${android.os.Build.MODEL} sdk=${android.os.Build.VERSION.SDK_INT}")
         binding.previewView.implementationMode = androidx.camera.view.PreviewView.ImplementationMode.COMPATIBLE
         binding.previewView.scaleType = androidx.camera.view.PreviewView.ScaleType.FILL_CENTER
 
@@ -152,8 +153,8 @@ class MainActivity : AppCompatActivity() {
             binding.compositionOverlay.setAnalyzing(true)
         }
         val zoom = camera?.cameraInfo?.zoomState?.value?.zoomRatio ?: 1f
-        Log.i(tag, "ai_request bytes=${jpeg.size} zoom=$zoom endpoint=${CompositionApi.ENDPOINT}")
-        api.analyze(jpeg, zoom) { result ->
+        Log.i(tag, "ai_request bytes=${jpeg.size} zoom=$zoom transport=webview bridge=${CompositionWebBridge.BRIDGE_URL}")
+        webBridge.analyze(jpeg, zoom) { result ->
             requestInFlight.set(false)
             runOnUiThread {
                 result.onSuccess {
@@ -228,7 +229,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        super.onDestroy()
+        webBridge.destroy()
         cameraExecutor.shutdown()
+        super.onDestroy()
     }
 }
