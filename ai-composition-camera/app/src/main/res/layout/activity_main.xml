@@ -1,8 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#000000" android:paddingTop="16dp">
-<com.google.android.material.card.MaterialCardView android:id="@+id/cameraCard" android:layout_width="0dp" android:layout_height="0dp" android:layout_marginStart="12dp" android:layout_marginEnd="12dp" android:layout_marginTop="10dp" app:cardBackgroundColor="#111111" app:cardCornerRadius="26dp" app:cardElevation="0dp" app:layout_constraintDimensionRatio="3:4" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toTopOf="parent">
-<FrameLayout android:layout_width="match_parent" android:layout_height="match_parent"><androidx.camera.view.PreviewView android:id="@+id/previewView" android:layout_width="match_parent" android:layout_height="match_parent"/><com.phoneanh.aicompose.CompositionOverlayView android:id="@+id/compositionOverlay" android:layout_width="match_parent" android:layout_height="match_parent"/><LinearLayout android:id="@+id/zoomBar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="16dp" android:background="@drawable/zoom_chip_bg" android:gravity="center" android:orientation="horizontal"><TextView android:id="@+id/zoom06" style="@style/ZoomText" android:text="0.6"/><TextView android:id="@+id/zoom1" style="@style/ZoomText" android:text="1×"/><TextView android:id="@+id/zoom2" style="@style/ZoomText" android:text="2"/><TextView android:id="@+id/zoom3" style="@style/ZoomText" android:text="3"/></LinearLayout></FrameLayout></com.google.android.material.card.MaterialCardView>
-<LinearLayout android:id="@+id/toolsRow" android:layout_width="0dp" android:layout_height="56dp" android:layout_marginStart="34dp" android:layout_marginEnd="34dp" android:gravity="center" android:orientation="horizontal" android:weightSum="4" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/cameraCard"><TextView style="@style/ToolText" android:text="◎"/><TextView style="@style/ToolText" android:text="□"/><TextView style="@style/ToolText" android:text="3:4"/><TextView style="@style/ToolText" android:text="↻"/></LinearLayout>
-<FrameLayout android:id="@+id/bottomControls" android:layout_width="0dp" android:layout_height="150dp" app:layout_constraintBottom_toTopOf="@id/modeBar" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/toolsRow"><ImageButton android:id="@+id/shutterButton" android:layout_width="92dp" android:layout_height="92dp" android:layout_gravity="center" android:background="@drawable/shutter_bg" android:contentDescription="Chụp ảnh"/><TextView android:id="@+id/aiButton" android:layout_width="106dp" android:layout_height="64dp" android:layout_gravity="end|center_vertical" android:layout_marginEnd="18dp" android:background="@drawable/ai_button_bg" android:gravity="center" android:padding="8dp" android:text="✨\nBố cục AI" android:textColor="#FFFFFF" android:textSize="14sp"/><TextView android:layout_width="70dp" android:layout_height="70dp" android:layout_gravity="start|center_vertical" android:layout_marginStart="22dp" android:background="@drawable/ai_button_bg" android:gravity="center" android:text="▧" android:textColor="#FFFFFF" android:textSize="26sp"/></FrameLayout>
-<LinearLayout android:id="@+id/modeBar" android:layout_width="0dp" android:layout_height="64dp" android:layout_marginStart="42dp" android:layout_marginEnd="42dp" android:layout_marginBottom="18dp" android:background="@drawable/ai_button_bg" android:gravity="center" android:orientation="horizontal" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent"><TextView style="@style/ModeText" android:text="Máy ảnh" android:textStyle="bold"/><TextView style="@style/ModeText" android:text="Album"/><TextView style="@style/ModeText" android:text="Tôi"/></LinearLayout>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/black">
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cameraCard"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="12dp"
+        app:cardBackgroundColor="#111111"
+        app:cardCornerRadius="28dp"
+        app:cardElevation="0dp"
+        app:layout_constraintDimensionRatio="3:4"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
+            <androidx.camera.view.PreviewView android:id="@+id/previewView" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fillCenter" />
+            <View android:layout_width="match_parent" android:layout_height="112dp" android:layout_gravity="bottom" android:background="@drawable/preview_bottom_fade" />
+            <com.phoneanh.aicompose.CompositionOverlayView android:id="@+id/compositionOverlay" android:layout_width="match_parent" android:layout_height="match_parent" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="top" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="14dp" android:paddingTop="14dp" android:paddingEnd="14dp">
+                <ImageButton android:layout_width="36dp" android:layout_height="36dp" android:background="@drawable/circle_button_bg" android:contentDescription="Quay lại" android:padding="9dp" app:srcCompat="@drawable/ic_back" />
+                <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+                <ImageButton android:layout_width="36dp" android:layout_height="36dp" android:background="@drawable/circle_button_bg" android:contentDescription="Cài đặt" android:padding="9dp" app:srcCompat="@drawable/ic_settings" />
+            </LinearLayout>
+            <TextView android:id="@+id/aiTip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="top|center_horizontal" android:layout_marginStart="28dp" android:layout_marginTop="58dp" android:layout_marginEnd="28dp" android:background="@drawable/glass_pill_bg" android:ellipsize="end" android:gravity="center" android:maxLines="2" android:paddingStart="16dp" android:paddingTop="7dp" android:paddingEnd="16dp" android:paddingBottom="7dp" android:text="Bật Bố cục AI để được gợi ý khung đẹp" android:textColor="@color/white" android:textSize="13sp" />
+            <LinearLayout android:id="@+id/zoomBar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="18dp" android:background="@drawable/zoom_chip_bg" android:gravity="center" android:orientation="horizontal">
+                <TextView android:id="@+id/zoom06" style="@style/ZoomText" android:text="0.6" />
+                <TextView android:id="@+id/zoom1" style="@style/ZoomText" android:text="1×" />
+                <TextView android:id="@+id/zoom2" style="@style/ZoomText" android:text="2" />
+                <TextView android:id="@+id/zoom3" style="@style/ZoomText" android:text="3" />
+            </LinearLayout>
+        </FrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <LinearLayout android:id="@+id/toolsRow" android:layout_width="0dp" android:layout_height="52dp" android:layout_marginStart="28dp" android:layout_marginTop="7dp" android:layout_marginEnd="28dp" android:gravity="center" android:orientation="horizontal" android:weightSum="5" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/cameraCard">
+        <ImageButton style="@style/ToolIconButton" android:contentDescription="Hẹn giờ" app:srcCompat="@drawable/ic_timer" />
+        <ImageButton style="@style/ToolIconButton" android:contentDescription="Lưới" app:srcCompat="@drawable/ic_grid" />
+        <ImageButton style="@style/ToolIconButton" android:contentDescription="Điều chỉnh" app:srcCompat="@drawable/ic_adjust" />
+        <TextView style="@style/ToolText" android:text="3:4" />
+        <ImageButton style="@style/ToolIconButton" android:contentDescription="Đổi camera" app:srcCompat="@drawable/ic_rotate_camera" />
+    </LinearLayout>
+
+    <FrameLayout android:id="@+id/bottomControls" android:layout_width="0dp" android:layout_height="140dp" app:layout_constraintBottom_toTopOf="@id/modeBar" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintTop_toBottomOf="@id/toolsRow">
+        <FrameLayout android:layout_width="62dp" android:layout_height="62dp" android:layout_gravity="start|center_vertical" android:layout_marginStart="26dp" android:background="@drawable/gallery_tile_bg">
+            <ImageView android:layout_width="26dp" android:layout_height="26dp" android:layout_gravity="center" android:contentDescription="Album" app:srcCompat="@drawable/ic_gallery" />
+        </FrameLayout>
+        <ImageButton android:id="@+id/shutterButton" android:layout_width="92dp" android:layout_height="92dp" android:layout_gravity="center" android:background="@drawable/shutter_bg" android:contentDescription="Chụp ảnh" android:padding="0dp" />
+        <LinearLayout android:id="@+id/aiButton" android:layout_width="88dp" android:layout_height="88dp" android:layout_gravity="end|center_vertical" android:layout_marginEnd="18dp" android:background="@drawable/ai_button_bg" android:gravity="center" android:orientation="vertical" android:padding="8dp">
+            <ImageView android:layout_width="25dp" android:layout_height="25dp" android:contentDescription="Bố cục AI" app:srcCompat="@drawable/ic_ai_sparkles" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Bố cục AI" android:textColor="@color/white" android:textSize="13sp" android:textStyle="bold" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <LinearLayout android:id="@+id/modeBar" android:layout_width="0dp" android:layout_height="62dp" android:layout_marginStart="38dp" android:layout_marginEnd="38dp" android:layout_marginBottom="14dp" android:background="@drawable/mode_bar_bg" android:gravity="center" android:orientation="horizontal" android:padding="4dp" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintEnd_toEndOf="parent" app:layout_constraintStart_toStartOf="parent">
+        <TextView style="@style/ModeTextActive" android:background="@drawable/mode_active_bg" android:text="Máy ảnh" />
+        <TextView style="@style/ModeText" android:text="Album" />
+        <TextView style="@style/ModeText" android:text="Tôi" />
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

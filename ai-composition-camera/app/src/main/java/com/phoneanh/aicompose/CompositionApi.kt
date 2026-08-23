@@ -71,6 +71,6 @@ class CompositionApi {
 
     companion object {
         private val JSON = "application/json; charset=utf-8".toMediaType()
-        const val ENDPOINT = "https://doka-gemini-bridge-4nsiiq.v2.appdeploy.ai/api/composition/v1"
+        const val ENDPOINT = "https://long-525p3v.v2.appdeploy.ai/api/composition/v1"
     }
 }
