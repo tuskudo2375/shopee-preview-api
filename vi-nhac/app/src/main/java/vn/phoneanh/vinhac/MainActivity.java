@@ -1,4 +1,4 @@
-package vn.phoneanh.vinhac;
+package titus.expenseassistant;
 
 import android.Manifest;
 import android.app.Activity;
@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
         root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(pad,pad,pad,pad); root.setBackgroundColor(Color.rgb(248,248,250));
         scroll.addView(root); setContentView(scroll);
 
-        TextView brand = text("VÍ NHẮC", 14, RED, true); brand.setLetterSpacing(.12f); root.addView(brand);
+        TextView brand = text("TRỢ LÝ CHI TIÊU", 14, RED, true); brand.setLetterSpacing(.08f); root.addView(brand);
         root.addView(text("Tháng này còn", 16, MUTED, false), top(20));
         TextView remain = text(Format.money(store.remaining()), 36, INK, true); root.addView(remain, top(2));
         TextView edit = text("Ngân sách " + Format.money(store.budget()) + "  •  Chạm để sửa", 14, MUTED, false); edit.setPadding(0,dp(8),0,dp(12)); edit.setOnClickListener(v -> budgetDialog()); root.addView(edit);

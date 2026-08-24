@@ -1,4 +1,4 @@
-package vn.phoneanh.vinhac;
+package titus.expenseassistant;
 
 import android.app.Notification;
 import android.app.NotificationChannel;

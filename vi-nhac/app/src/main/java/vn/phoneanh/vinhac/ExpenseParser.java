@@ -1,4 +1,4 @@
-package vn.phoneanh.vinhac;
+package titus.expenseassistant;
 
 import java.text.Normalizer;
 import java.util.Locale;

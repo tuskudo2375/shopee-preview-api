@@ -1,4 +1,4 @@
-name: Build Vi Nhac APK
+name: Build Tro Ly Chi Tieu APK
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ViNhac-debug-apk
+          name: TroLyChiTieu-debug-apk
           path: vi-nhac/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

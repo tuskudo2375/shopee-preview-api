@@ -1,4 +1,4 @@
-# Ví Nhắc
+# Trợ lý chi tiêu
 
 Ứng dụng Android quản lý ngân sách tháng và nhập chi tiêu bằng câu tiếng Việt.
 

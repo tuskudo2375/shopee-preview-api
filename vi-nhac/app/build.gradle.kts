@@ -1,11 +1,11 @@
 plugins { id("com.android.application") }
 
 android {
-    namespace = "vn.phoneanh.vinhac"
+    namespace = "titus.expenseassistant"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "vn.phoneanh.vinhac"
+        applicationId = "titus.expenseassistant"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

@@ -1,4 +1,4 @@
-package vn.phoneanh.vinhac;
+package titus.expenseassistant;
 
 import android.app.AlarmManager;
 import android.app.PendingIntent;
