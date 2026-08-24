@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Calendar;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.text.SimpleDateFormat;
 
 public class MainActivity extends Activity {
     private final int RED = Color.rgb(217,45,32), GREEN = Color.rgb(26,127,75), INK = Color.rgb(28,28,30), MUTED = Color.rgb(105,105,110);
@@ -151,7 +152,19 @@ public class MainActivity extends Activity {
         LinearLayout row = new LinearLayout(this); row.setGravity(android.view.Gravity.CENTER_VERTICAL); row.setPadding(dp(14),dp(12),dp(14),dp(12)); row.setBackground(card(Color.WHITE,0xffe5e5e8));
         LinearLayout words = new LinearLayout(this); words.setOrientation(LinearLayout.VERTICAL);
         words.addView(text(o.getString("note"),16,INK,true)); words.addView(text(o.getString("category")+" • "+o.optString("source", "Tiền mặt")+" • "+(LocalDate.now().toString().equals(o.getString("date"))?"Hôm nay":o.getString("date")),13,MUTED,false));
-        row.addView(words,new LinearLayout.LayoutParams(0,-2,1)); row.addView(text("−"+Format.money(o.getLong("amount")),16,RED,true)); return row;
+        row.addView(words,new LinearLayout.LayoutParams(0,-2,1)); row.addView(text("−"+Format.money(o.getLong("amount")),16,RED,true)); row.setOnClickListener(v -> expenseDialog(o)); return row;
+    }
+
+    private void expenseDialog(JSONObject o) {
+        String stamp = o.optLong("time", 0) > 0 ? new SimpleDateFormat("HH:mm • dd/MM/yyyy", new Locale("vi", "VN")).format(new java.util.Date(o.optLong("time"))) : o.optString("date", "");
+        String message = "Ghi chú: " + o.optString("note", "") + "\nNội dung đã nhập: " + o.optString("raw", o.optString("note", "")) + "\nSố tiền: " + Format.money(o.optLong("amount", 0)) + "\nMục tiêu: " + o.optString("category", "Chưa gắn thẻ") + "\nNguồn tiền: " + o.optString("source", "Tiền mặt") + "\nThời gian: " + stamp;
+        new AlertDialog.Builder(this).setTitle("Chi tiết khoản chi").setMessage(message).setNegativeButton("Đóng", null).setPositiveButton("ĐỔI MỤC TIÊU", (d, w) -> editExpenseCategory(o)).show();
+    }
+
+    private void editExpenseCategory(JSONObject o) {
+        String current = o.optString("category", "Chưa gắn thẻ");
+        int checked = Math.max(0, java.util.Arrays.asList(ExpenseParser.CATEGORIES).indexOf(current));
+        new AlertDialog.Builder(this).setTitle("Đổi mục tiêu chi tiêu").setSingleChoiceItems(ExpenseParser.CATEGORIES, checked, (d, which) -> { String category = ExpenseParser.CATEGORIES[which]; if (store.updateCategory(o, category)) { NotificationHelper.refresh(this); Toast.makeText(this, "Đã chuyển sang " + category, Toast.LENGTH_SHORT).show(); draw(); } d.dismiss(); }).setNegativeButton("Hủy", null).show();
     }
 
     private LinearLayout stat(String label,String value){ LinearLayout b=new LinearLayout(this);b.setOrientation(LinearLayout.VERTICAL);b.addView(text(label,12,MUTED,true));b.addView(text(value,18,INK,true));return b; }
