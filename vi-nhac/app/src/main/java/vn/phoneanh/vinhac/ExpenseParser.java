@@ -55,7 +55,7 @@ final class ExpenseParser {
         if (has(s, "an sang", "an trua", "an toi", "an vat", "tra sua", "cafe", "ca phe", "nuoc ngot", "banh", "com", "pho", "bun", "hu tieu", "thuc an", "an uong")) return "Ăn uống";
         if (has(s, "sieu thi", "winmart", "coopmart", "bach hoa", "go grocery")) return "Siêu thị";
         if (has(s, "dien", "nuoc", "wifi", "internet", "dien thoai", "tien nha", "hoa don")) return "Hóa đơn";
-        if (has(s, "mua sam", "quan ao", "giay", "my pham", "shopee")) return "Mua sắm";
+        if (has(s, "mua sam", "mua do", "quan ao", "giay", "my pham", "shopee")) return "Mua sắm";
         if (has(s, "phim", "game", "karaoke", "giai tri")) return "Giải trí";
         if (has(s, "khach san", "hotel", "resort")) return "Khách sạn";
         if (has(s, "xang", "grab", "taxi", "gui xe", "xe buyt", "di lai", "di chuyen")) return "Di chuyển";
