@@ -7,6 +7,8 @@ import org.json.JSONObject;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 final class BudgetStore {
     private static final String HISTORY_KEY = "expense_history_6m";
@@ -17,11 +19,16 @@ final class BudgetStore {
     void setBudget(long value) { prefs.edit().putLong(key("limit"), value).apply(); }
 
     void add(ExpenseParser.Result r, String raw) {
+        add(r, raw, r.source.isEmpty() ? defaultSource() : r.source);
+    }
+
+    void add(ExpenseParser.Result r, String raw, String source) {
         try {
             JSONArray items = items();
             JSONObject item = new JSONObject();
             item.put("amount", r.amount); item.put("category", r.category); item.put("note", r.note);
             item.put("raw", raw); item.put("date", LocalDate.now().toString()); item.put("time", System.currentTimeMillis());
+            item.put("source", source == null || source.isEmpty() ? defaultSource() : source);
             items.put(item);
             prefs.edit().putString(HISTORY_KEY, items.toString()).apply();
         } catch (Exception ignored) {}
@@ -49,6 +56,19 @@ final class BudgetStore {
     int daysRemainingInclusive() { LocalDate d = LocalDate.now(); return YearMonth.from(d).lengthOfMonth() - d.getDayOfMonth() + 1; }
     long todayAllowance() { return remaining() / Math.max(1, daysRemainingInclusive()); }
     private String key(String suffix) { return YearMonth.now() + "_" + suffix; }
+
+    String defaultSource() { return prefs.getString("default_source", "Tiền mặt"); }
+    void setDefaultSource(String source) { prefs.edit().putString("default_source", source).apply(); }
+    List<String> sources() {
+        ArrayList<String> values = new ArrayList<>(); values.add("Tiền mặt"); values.add("Techcombank"); values.add("Thẻ Techcombank");
+        String custom = prefs.getString("custom_sources", "");
+        for (String item : custom.split("\\|")) if (!item.trim().isEmpty() && !values.contains(item.trim())) values.add(item.trim());
+        return values;
+    }
+    void addSource(String source) {
+        String clean = source.trim(); if (clean.isEmpty() || sources().contains(clean)) return;
+        String old = prefs.getString("custom_sources", ""); prefs.edit().putString("custom_sources", old.isEmpty() ? clean : old + "|" + clean).apply();
+    }
 
     private JSONArray readHistoryOrMigrate() {
         String saved = prefs.getString(HISTORY_KEY, null);

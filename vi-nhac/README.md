@@ -12,6 +12,8 @@
 - Nhắc nhập chi tiêu lúc 10:00, 13:00 và 21:30; chuyển đỏ nếu vượt mức gợi ý trong ngày.
 - Dữ liệu nằm offline trong máy, tự tách theo tháng.
 - Lịch sử giữ toàn bộ khoản chi của tháng, nhóm theo từng ngày và hiện tổng tiền mỗi ngày.
+- Lịch sử tự giữ 6 tháng gần nhất, có bộ lọc chọn ngày bằng lịch hệ thống của thiết bị.
+- Mỗi khoản chi có nguồn tiền: Tiền mặt, Techcombank, Thẻ Techcombank hoặc nguồn tự thêm.
 - Có thể nhập Gemini API key trong app để phân loại thông minh; key được mã hóa bằng Android Keystore. Khi API lỗi hoặc mất mạng, app tự dùng bộ lọc offline.
 
 ## Build

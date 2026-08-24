@@ -10,7 +10,9 @@ final class ExpenseParser {
         final long amount;
         final String category;
         final String note;
-        Result(long amount, String category, String note) { this.amount = amount; this.category = category; this.note = note; }
+        final String source;
+        Result(long amount, String category, String note) { this(amount, category, note, ""); }
+        Result(long amount, String category, String note, String source) { this.amount = amount; this.category = category; this.note = note; this.source = source; }
     }
 
     private static final Pattern MONEY = Pattern.compile("(?i)(\\d+(?:[.,]\\d{1,3})*)\\s*(k|nghin|ngan|tr|trieu|m)?");
@@ -37,7 +39,13 @@ final class ExpenseParser {
         String category = categoryFor(normalized);
         String note = raw.trim();
         if (start >= 0) note = (raw.substring(0, Math.min(start, raw.length())) + raw.substring(Math.min(end, raw.length()))).trim();
-        return new Result(amount, category, note.isEmpty() ? category : note);
+        return new Result(amount, category, note.isEmpty() ? category : note, sourceFor(normalized));
+    }
+
+    private static String sourceFor(String s) {
+        if (s.contains("the techcombank") || s.contains("the tcb") || s.contains("credit techcombank")) return "Thẻ Techcombank";
+        if (s.contains("techcombank") || s.contains("tcb") || s.contains("bank techcombank")) return "Techcombank";
+        return "";
     }
 
     private static String categoryFor(String s) {
