@@ -52,6 +52,14 @@ final class BudgetStore {
         return false;
     }
 
+    boolean updateSource(JSONObject target, String source) {
+        try {
+            JSONArray all = items(); long targetTime = target.optLong("time", -1);
+            for (int i = 0; i < all.length(); i++) { JSONObject item = all.getJSONObject(i); if (targetTime > 0 && item.optLong("time", -2) == targetTime) { item.put("source", source); prefs.edit().putString(HISTORY_KEY, all.toString()).apply(); return true; } }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     JSONArray items() {
         JSONArray result = readHistoryOrMigrate();
         LocalDate cutoff = LocalDate.now().minusMonths(5).withDayOfMonth(1);
