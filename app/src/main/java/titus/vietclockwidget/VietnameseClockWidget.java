@@ -129,6 +129,10 @@ public class VietnameseClockWidget extends AppWidgetProvider {
 
         views.setTextViewText(R.id.tv_hour_tens, hour.substring(0, 1));
         views.setTextViewText(R.id.tv_hour_ones, hour.substring(1, 2));
+        int white = context.getResources().getColor(R.color.widget_text);
+        int red = context.getResources().getColor(R.color.widget_red);
+        views.setTextColor(R.id.tv_hour_tens, hour.charAt(0) == '1' ? red : white);
+        views.setTextColor(R.id.tv_hour_ones, hour.charAt(1) == '1' ? red : white);
         views.setTextViewText(R.id.tv_minute, minute);
         views.setTextViewText(R.id.tv_weekday, weekday(now.get(Calendar.DAY_OF_WEEK)));
         views.setTextViewText(R.id.tv_month, "Tháng " + (now.get(Calendar.MONTH) + 1));

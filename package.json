@@ -1,0 +1,15 @@
+{
+  "name": "shopee-preview-api",
+  "version": "1.0.0",
+  "description": "API lấy preview Shopee",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0-rc.12",
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}
