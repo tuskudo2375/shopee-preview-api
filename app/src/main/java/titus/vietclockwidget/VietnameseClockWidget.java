@@ -127,7 +127,8 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         String hour = twoDigits(now.get(Calendar.HOUR_OF_DAY));
         String minute = twoDigits(now.get(Calendar.MINUTE));
 
-        views.setTextViewText(R.id.tv_hour, hour);
+        views.setTextViewText(R.id.tv_hour_tens, hour.substring(0, 1));
+        views.setTextViewText(R.id.tv_hour_ones, hour.substring(1, 2));
         views.setTextViewText(R.id.tv_minute, minute);
         views.setTextViewText(R.id.tv_weekday, weekday(now.get(Calendar.DAY_OF_WEEK)));
         views.setTextViewText(R.id.tv_month, "Tháng " + (now.get(Calendar.MONTH) + 1));
@@ -146,13 +147,14 @@ public class VietnameseClockWidget extends AppWidgetProvider {
             views.setTextViewText(R.id.tv_low_temp, "▼ " + prefs.getString(KEY_LOW, "—") + "°");
             views.setTextViewText(R.id.tv_high_temp, "▲ " + prefs.getString(KEY_HIGH, "—") + "°");
             views.setTextViewText(R.id.tv_location, "⌖ " + prefs.getString(KEY_CITY, "Vị trí hiện tại"));
-            views.setTextViewText(R.id.tv_condition,
-                    prefs.getString(KEY_ICON, "☀") + " " + prefs.getString(KEY_CONDITION, "Đang cập nhật"));
+            views.setTextViewText(R.id.tv_condition, prefs.getString(KEY_CONDITION, "Đang cập nhật"));
+            views.setTextViewText(R.id.tv_weather_icon, prefs.getString(KEY_ICON, "☀"));
         } else {
             views.setTextViewText(R.id.tv_low_temp, "▼ —°");
             views.setTextViewText(R.id.tv_high_temp, "▲ —°");
             views.setTextViewText(R.id.tv_location, "⌖ Bật vị trí");
-            views.setTextViewText(R.id.tv_condition, "⟳ Chạm để cập nhật");
+            views.setTextViewText(R.id.tv_condition, "Bật vị trí để cập nhật");
+            views.setTextViewText(R.id.tv_weather_icon, "☀");
         }
 
         Intent openApp = new Intent(context, MainActivity.class)
