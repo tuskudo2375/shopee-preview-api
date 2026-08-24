@@ -10,6 +10,9 @@ public class ExpenseParserTest {
         assertParsed("đổ xăng 100.000", 100_000, "Di chuyển");
         assertParsed("tiền nhà 1.500.000", 1_500_000, "Hóa đơn");
         assertParsed("mua đồ 1,5 triệu", 1_500_000, "Mua sắm");
+        ExpenseParser.Result lunchByBank = ExpenseParser.parse("ăn trưa 30k chuyển khoản");
+        assertEquals("Ăn uống", lunchByBank.category);
+        assertEquals("Chuyển khoản", lunchByBank.source);
     }
     private void assertParsed(String raw, long amount, String category) {
         ExpenseParser.Result result = ExpenseParser.parse(raw);
