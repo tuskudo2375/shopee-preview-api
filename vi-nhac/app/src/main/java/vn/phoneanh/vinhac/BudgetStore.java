@@ -9,6 +9,7 @@ import java.time.YearMonth;
 import java.util.Map;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 
 final class BudgetStore {
     private static final String HISTORY_KEY = "expense_history_6m";
@@ -55,7 +56,7 @@ final class BudgetStore {
     boolean updateSource(JSONObject target, String source) {
         try {
             JSONArray all = items(); long targetTime = target.optLong("time", -1);
-            for (int i = 0; i < all.length(); i++) { JSONObject item = all.getJSONObject(i); if (targetTime > 0 && item.optLong("time", -2) == targetTime) { item.put("source", source); prefs.edit().putString(HISTORY_KEY, all.toString()).apply(); return true; } }
+            for (int i = 0; i < all.length(); i++) { JSONObject item = all.getJSONObject(i); boolean same = targetTime > 0 && item.optLong("time", -2) == targetTime; if (!same && targetTime <= 0) same = item.optString("date").equals(target.optString("date")) && item.optLong("amount", -1) == target.optLong("amount", -2) && item.optString("raw").equals(target.optString("raw")); if (same) { item.put("source", source); prefs.edit().putString(HISTORY_KEY, all.toString()).apply(); return true; } }
         } catch (Exception ignored) {}
         return false;
     }
@@ -83,13 +84,10 @@ final class BudgetStore {
     long todayAllowance() { return remaining() / Math.max(1, daysRemainingInclusive()); }
     private String key(String suffix) { return YearMonth.now() + "_" + suffix; }
 
-    String defaultSource() { return prefs.getString("default_source", "Tiền mặt"); }
+    String defaultSource() { String source = prefs.getString("default_source", "Tiền Mặt"); if ("Tiền mặt".equals(source)) return "Tiền Mặt"; if ("Techcombank".equals(source) || "Thẻ Techcombank".equals(source)) return "Thẻ Tech"; return Arrays.asList(ExpenseParser.SOURCES).contains(source) ? source : "Tiền Mặt"; }
     void setDefaultSource(String source) { prefs.edit().putString("default_source", source).apply(); }
     List<String> sources() {
-        ArrayList<String> values = new ArrayList<>(); values.add("Tiền mặt"); values.add("Techcombank"); values.add("Thẻ Techcombank");
-        String custom = prefs.getString("custom_sources", "");
-        for (String item : custom.split("\\|")) if (!item.trim().isEmpty() && !values.contains(item.trim())) values.add(item.trim());
-        return values;
+        return new ArrayList<>(Arrays.asList(ExpenseParser.SOURCES));
     }
     void addSource(String source) {
         String clean = source.trim(); if (clean.isEmpty() || sources().contains(clean)) return;
