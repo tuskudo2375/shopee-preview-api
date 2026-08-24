@@ -6,6 +6,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 final class ExpenseParser {
+    static final String[] CATEGORIES = {"Tiền chuyển đi", "Ăn uống", "Mua sắm", "Siêu thị", "Hóa đơn", "Giải trí", "Khách sạn", "Di chuyển", "Giáo dục", "Y tế", "Du lịch", "Chưa gắn thẻ"};
+
     static final class Result {
         final long amount;
         final String category;
@@ -49,14 +51,18 @@ final class ExpenseParser {
     }
 
     private static String categoryFor(String s) {
-        if (has(s, "tra sua", "an vat", "cafe", "ca phe", "nuoc ngot", "banh", "snack")) return "Ăn vặt";
-        if (has(s, "an sang", "an trua", "an toi", "com", "pho", "bun", "hu tieu", "thuc an")) return "Nhu cầu";
-        if (has(s, "xang", "grab", "taxi", "gui xe", "xe buyt", "di lai")) return "Đi lại";
+        if (has(s, "chuyen tien", "chuyen khoan", "gui tien", "tien chuyen di")) return "Tiền chuyển đi";
+        if (has(s, "an sang", "an trua", "an toi", "an vat", "tra sua", "cafe", "ca phe", "nuoc ngot", "banh", "com", "pho", "bun", "hu tieu", "thuc an", "an uong")) return "Ăn uống";
+        if (has(s, "sieu thi", "winmart", "coopmart", "bach hoa", "go grocery")) return "Siêu thị";
         if (has(s, "dien", "nuoc", "wifi", "internet", "dien thoai", "tien nha", "hoa don")) return "Hóa đơn";
         if (has(s, "mua sam", "quan ao", "giay", "my pham", "shopee")) return "Mua sắm";
-        if (has(s, "thuoc", "kham", "benh vien", "suc khoe")) return "Sức khỏe";
-        if (has(s, "phim", "game", "du lich", "giai tri")) return "Giải trí";
-        return "Khác";
+        if (has(s, "phim", "game", "karaoke", "giai tri")) return "Giải trí";
+        if (has(s, "khach san", "hotel", "resort")) return "Khách sạn";
+        if (has(s, "xang", "grab", "taxi", "gui xe", "xe buyt", "di lai", "di chuyen")) return "Di chuyển";
+        if (has(s, "hoc phi", "truong", "sach", "khoa hoc", "giao duc")) return "Giáo dục";
+        if (has(s, "thuoc", "kham", "benh vien", "suc khoe", "y te")) return "Y tế";
+        if (has(s, "du lich", "may bay", "ve tau", "tour")) return "Du lịch";
+        return "Chưa gắn thẻ";
     }
 
     private static boolean has(String s, String... words) { for (String w : words) if (s.contains(w)) return true; return false; }
