@@ -147,18 +147,20 @@ public class VietnameseClockWidget extends AppWidgetProvider {
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         boolean ready = prefs.getBoolean(KEY_READY, false);
+        views.setImageViewResource(R.id.iv_location, R.drawable.ic_location);
         if (ready) {
             views.setTextViewText(R.id.tv_low_temp, "▼ " + prefs.getString(KEY_LOW, "—") + "°");
             views.setTextViewText(R.id.tv_high_temp, "▲ " + prefs.getString(KEY_HIGH, "—") + "°");
-            views.setTextViewText(R.id.tv_location, "⌖ " + prefs.getString(KEY_CITY, "Vị trí hiện tại"));
+            views.setTextViewText(R.id.tv_location, prefs.getString(KEY_CITY, "Vị trí hiện tại"));
             views.setTextViewText(R.id.tv_condition, prefs.getString(KEY_CONDITION, "Đang cập nhật"));
-            views.setTextViewText(R.id.tv_weather_icon, prefs.getString(KEY_ICON, "☀"));
+            views.setImageViewResource(R.id.iv_weather_icon,
+                    weatherIconResource(prefs.getString(KEY_ICON, "sun")));
         } else {
             views.setTextViewText(R.id.tv_low_temp, "▼ —°");
             views.setTextViewText(R.id.tv_high_temp, "▲ —°");
-            views.setTextViewText(R.id.tv_location, "⌖ Bật vị trí");
+            views.setTextViewText(R.id.tv_location, "Bật vị trí");
             views.setTextViewText(R.id.tv_condition, "Bật vị trí để cập nhật");
-            views.setTextViewText(R.id.tv_weather_icon, "☀");
+            views.setImageViewResource(R.id.iv_weather_icon, R.drawable.ic_weather_sun);
         }
 
         Intent openApp = new Intent(context, MainActivity.class)
@@ -363,11 +365,18 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     }
 
     private static String weatherIcon(int code) {
-        if (code == 0) return "☀";
-        if (code == 1 || code == 2 || code == 3) return "☁";
-        if (code >= 51 && code <= 82) return "☂";
-        if (code >= 95) return "⚡";
-        return "☁";
+        if (code == 0) return "sun";
+        if (code == 1 || code == 2 || code == 3) return "cloud";
+        if (code >= 51 && code <= 82) return "rain";
+        if (code >= 95) return "storm";
+        return "cloud";
+    }
+
+    private static int weatherIconResource(String icon) {
+        if ("rain".equals(icon)) return R.drawable.ic_weather_rain;
+        if ("storm".equals(icon)) return R.drawable.ic_weather_storm;
+        if ("cloud".equals(icon)) return R.drawable.ic_weather_cloud;
+        return R.drawable.ic_weather_sun;
     }
 
     private static void scheduleMinuteUpdates(Context context) {

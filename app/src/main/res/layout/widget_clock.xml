@@ -172,22 +172,39 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/tv_location"
+                <LinearLayout
+                    android:id="@+id/location_row"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:fontFamily="sans"
-                    android:maxLines="1"
-                    android:paddingTop="3dp"
-                    android:shadowColor="#99000000"
-                    android:shadowDx="1"
-                    android:shadowDy="1"
-                    android:shadowRadius="3"
-                    android:text="⌖ Gò Vấp"
-                    android:textColor="@color/widget_text"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="3dp">
+
+                    <ImageView
+                        android:id="@+id/iv_location"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:contentDescription=""
+                        android:src="@drawable/ic_location" />
+
+                    <TextView
+                        android:id="@+id/tv_location"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="sans"
+                        android:maxLines="1"
+                        android:paddingStart="5dp"
+                        android:shadowColor="#99000000"
+                        android:shadowDx="1"
+                        android:shadowDy="1"
+                        android:shadowRadius="3"
+                        android:text="Gò Vấp"
+                        android:textColor="@color/widget_text"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tv_condition"
@@ -206,19 +223,14 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/tv_weather_icon"
+            <ImageView
+                android:id="@+id/iv_weather_icon"
                 android:layout_width="42dp"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:includeFontPadding="false"
-                android:shadowColor="#99000000"
-                android:shadowDx="1"
-                android:shadowDy="1"
-                android:shadowRadius="3"
-                android:text="☀"
-                android:textColor="@color/widget_text"
-                android:textSize="28sp" />
+                android:layout_height="42dp"
+                android:contentDescription=""
+                android:padding="2dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_weather_sun" />
         </LinearLayout>
 
         <TextView
