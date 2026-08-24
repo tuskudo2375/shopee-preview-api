@@ -20,6 +20,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
@@ -70,18 +71,25 @@ public class MainActivity extends Activity {
         updatePalette();
         int pad = dp(20);
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true);
-        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(pad,pad,pad,pad); root.setBackgroundColor(PAGE);
-        scroll.addView(root); setContentView(scroll);
+        root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(pad,pad,pad,dp(88)); root.setBackgroundColor(PAGE);
+        scroll.addView(root);
+        FrameLayout frame = new FrameLayout(this); frame.setBackgroundColor(PAGE);
+        FrameLayout.LayoutParams scrollParams = new FrameLayout.LayoutParams(-1,-1); scrollParams.bottomMargin = dp(72); frame.addView(scroll, scrollParams);
+        FrameLayout.LayoutParams navParams = new FrameLayout.LayoutParams(-1,dp(64),Gravity.BOTTOM); navParams.leftMargin = dp(12); navParams.rightMargin = dp(12); navParams.bottomMargin = dp(8); frame.addView(bottomNav(), navParams);
+        setContentView(frame);
         root.addView(header());
         if (tab == 0) drawHome(scroll); else drawHistory();
-        root.addView(bottomNav(), top(12));
     }
 
     private View header() {
         LinearLayout bar = new LinearLayout(this); bar.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand = text("TRỢ LÝ CHI TIÊU", 14, RED, true); brand.setLetterSpacing(.08f); bar.addView(brand, new LinearLayout.LayoutParams(0,-2,1));
         SecretStore secrets = new SecretStore(this);
-        TextView gemini = text("✦", 25, secrets.hasApiKey() ? GREEN : Color.rgb(232,128,24), true); gemini.setGravity(Gravity.CENTER); gemini.setContentDescription("Trạng thái Gemini"); gemini.setOnClickListener(v -> settingsDialog()); bar.addView(gemini, new LinearLayout.LayoutParams(dp(42),dp(42)));
+        int geminiColor = secrets.hasApiKey() ? GREEN : Color.rgb(232,128,24);
+        LinearLayout geminiBox = new LinearLayout(this); geminiBox.setGravity(Gravity.CENTER_VERTICAL); geminiBox.setPadding(dp(4),0,dp(6),0); geminiBox.setContentDescription("Gemini"); geminiBox.setOnClickListener(v -> settingsDialog());
+        TextView gemini = text("✦", 25, geminiColor, true); gemini.setGravity(Gravity.CENTER); geminiBox.addView(gemini, new LinearLayout.LayoutParams(dp(34),dp(42)));
+        TextView geminiLabel = text("Gemini", 13, geminiColor, true); geminiLabel.setGravity(Gravity.CENTER_VERTICAL); geminiBox.addView(geminiLabel, new LinearLayout.LayoutParams(-2,dp(42)));
+        bar.addView(geminiBox, new LinearLayout.LayoutParams(-2,dp(42)));
         TextView settings = text("⚙", 23, INK, false); settings.setGravity(Gravity.CENTER); settings.setContentDescription("Tùy chỉnh"); settings.setOnClickListener(v -> settingsDialog()); bar.addView(settings, new LinearLayout.LayoutParams(dp(42),dp(42)));
         return bar;
     }
@@ -125,9 +133,11 @@ public class MainActivity extends Activity {
 
     private View dayHeader(String isoDate,long total){LocalDate date=LocalDate.parse(isoDate);String label=date.equals(LocalDate.now())?"Hôm nay":date.format(DateTimeFormatter.ofPattern("EEEE, dd/MM",new Locale("vi","VN")));LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.addView(text(label,15,INK,true),new LinearLayout.LayoutParams(0,-2,1));row.addView(text("Tổng "+Format.money(total),14,MUTED,true));return row;}
     private long dayTotal(JSONArray items,String date){long total=0;for(int i=0;i<items.length();i++)try{JSONObject o=items.getJSONObject(i);if(date.equals(o.getString("date"))&&(filterSources.isEmpty()||filterSources.contains(o.optString("source","Tiền Mặt")))&&(filterCategory==null||filterCategory.equals(o.optString("category","Chưa gắn thẻ"))))total+=o.getLong("amount");}catch(Exception ignored){}return total;}
-    private View expense(JSONObject o)throws Exception{LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(14),dp(12),dp(14),dp(12));row.setBackground(card(CARD,0xffe5e5e8));LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);words.addView(text(o.getString("note"),16,INK,true));words.addView(text(o.getString("category")+" • "+o.optString("source","Tiền Mặt")+" • "+(LocalDate.now().toString().equals(o.getString("date"))?"Hôm nay":o.getString("date")),13,MUTED,false));row.addView(words,new LinearLayout.LayoutParams(0,-2,1));row.addView(text("−"+Format.money(o.getLong("amount")),16,RED,true));row.setOnClickListener(v->expenseDialog(o));return row;}
+    private View expense(JSONObject o)throws Exception{LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(14),dp(12),dp(14),dp(12));row.setBackground(card(CARD,0xffe5e5e8));LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);words.addView(text(o.getString("note"),16,INK,true));LinearLayout meta=new LinearLayout(this);meta.setGravity(Gravity.CENTER_VERTICAL);meta.addView(chip(o.optString("category","Chưa gắn thẻ"),0xffeaf7ef,GREEN,v->editExpenseCategory(o)),new LinearLayout.LayoutParams(-2,dp(30)));meta.addView(chip(o.optString("source","Tiền Mặt"),0xfff1f1f1,MUTED,v->editExpenseSource(o)),new LinearLayout.LayoutParams(-2,dp(30)));meta.addView(text(" • "+(LocalDate.now().toString().equals(o.getString("date"))?"Hôm nay":o.getString("date")),13,MUTED,false),new LinearLayout.LayoutParams(-2,dp(30)));words.addView(meta);row.addView(words,new LinearLayout.LayoutParams(0,-2,1));row.addView(text("−"+Format.money(o.getLong("amount")),16,RED,true));row.setOnClickListener(v->expenseDialog(o));return row;}
 
-    private View bottomNav(){LinearLayout nav=new LinearLayout(this);nav.setGravity(Gravity.CENTER);Button home=new Button(this);home.setText("⌂  HOME");home.setTextColor(tab==0?RED:MUTED);home.setOnClickListener(v->{tab=0;draw();});Button history=new Button(this);history.setText("▤  LỊCH SỬ");history.setTextColor(tab==1?RED:MUTED);history.setOnClickListener(v->{tab=1;draw();});nav.addView(home,new LinearLayout.LayoutParams(0,-2,1));nav.addView(history,new LinearLayout.LayoutParams(0,-2,1));return nav;}
+    private TextView chip(String label,int fill,int color,View.OnClickListener listener){TextView v=text(label,12,color,true);v.setGravity(Gravity.CENTER);v.setPadding(dp(10),0,dp(10),0);v.setSingleLine(true);v.setBackground(card(fill,0x00ffffff));v.setOnClickListener(listener);return v;}
+
+    private View bottomNav(){LinearLayout nav=new LinearLayout(this);nav.setGravity(Gravity.CENTER);nav.setPadding(dp(6),dp(4),dp(6),dp(4));nav.setBackground(card(CARD,0xffdddddf));nav.setElevation(dp(8));Button home=new Button(this);home.setText("⌂  HOME");home.setTextColor(tab==0?RED:MUTED);home.setOnClickListener(v->{tab=0;draw();});Button history=new Button(this);history.setText("▤  LỊCH SỬ");history.setTextColor(tab==1?RED:MUTED);history.setOnClickListener(v->{tab=1;draw();});nav.addView(home,new LinearLayout.LayoutParams(0,-1,1));nav.addView(history,new LinearLayout.LayoutParams(0,-1,1));return nav;}
 
     private void showDateFilter(){if(filterStartDate!=null&&filterEndDate==null)showEndDatePicker();else showStartDatePicker();}
     private void showStartDatePicker(){Calendar today=Calendar.getInstance();LocalDate selected=filterStartDate==null?LocalDate.now():LocalDate.parse(filterStartDate);DatePickerDialog dialog=new DatePickerDialog(this,(v,y,m,d)->{filterStartDate=String.format(Locale.ROOT,"%04d-%02d-%02d",y,m+1,d);filterEndDate=null;showEndDatePicker();},selected.getYear(),selected.getMonthValue()-1,selected.getDayOfMonth());Calendar min=Calendar.getInstance();min.add(Calendar.MONTH,-5);min.set(Calendar.DAY_OF_MONTH,1);dialog.getDatePicker().setMinDate(min.getTimeInMillis());dialog.getDatePicker().setMaxDate(today.getTimeInMillis());dialog.show();}
