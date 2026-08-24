@@ -113,7 +113,7 @@ public class MainActivity extends Activity {
     private void drawHistory() {
         root.addView(text("Chi tiêu trong 6 tháng", 22, INK, true), top(22));
         LinearLayout filters = new LinearLayout(this); filters.setGravity(Gravity.CENTER_VERTICAL);
-        Button date = new Button(this); date.setText(dateFilterLabel()); date.setTextColor(RED); date.setOnClickListener(v->showDateFilter()); filters.addView(date,new LinearLayout.LayoutParams(0,-2,1));
+        Button dateButton = new Button(this); dateButton.setText(dateFilterLabel()); dateButton.setTextColor(RED); dateButton.setOnClickListener(v->showDateFilter()); filters.addView(dateButton,new LinearLayout.LayoutParams(0,-2,1));
         Button source = new Button(this); source.setText(filterSources.isEmpty()?"NGUỒN: TẤT CẢ":"NGUỒN: "+filterSources.size()+" ĐÃ CHỌN"); source.setTextColor(RED); source.setOnClickListener(v->filterSourceDialog()); filters.addView(source,new LinearLayout.LayoutParams(0,-2,1));
         Button category = new Button(this); category.setText(filterCategory==null?"MỤC: TẤT CẢ":"MỤC: "+filterCategory); category.setTextColor(RED); category.setOnClickListener(v->filterCategoryDialog()); filters.addView(category,new LinearLayout.LayoutParams(0,-2,1));
         if(filterStartDate!=null||!filterSources.isEmpty()||filterCategory!=null){Button clear=new Button(this);clear.setText("XÓA");clear.setTextColor(MUTED);clear.setOnClickListener(v->{filterStartDate=null;filterEndDate=null;filterCategory=null;filterSources.clear();draw();});filters.addView(clear,new LinearLayout.LayoutParams(-2,-2));}
