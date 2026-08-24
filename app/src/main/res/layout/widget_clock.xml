@@ -29,7 +29,7 @@
                 android:id="@+id/tv_hour_tens"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans"
+                android:fontFamily="sans-serif"
                 android:includeFontPadding="false"
                 android:shadowColor="#99000000"
                 android:shadowDx="1"
@@ -37,14 +37,14 @@
                 android:shadowRadius="4"
                 android:text="1"
                 android:textColor="@color/widget_text"
-                android:textSize="54sp"
+                android:textSize="64sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/tv_hour_ones"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans"
+                android:fontFamily="sans-serif"
                 android:includeFontPadding="false"
                 android:shadowColor="#99000000"
                 android:shadowDx="1"
@@ -52,7 +52,7 @@
                 android:shadowRadius="4"
                 android:text="8"
                 android:textColor="@color/widget_text"
-                android:textSize="54sp"
+                android:textSize="64sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -73,20 +73,6 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/tv_month"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:fontFamily="sans"
-            android:shadowColor="#99000000"
-            android:shadowDx="1"
-            android:shadowDy="1"
-            android:shadowRadius="3"
-            android:text="Tháng 8"
-            android:textColor="@color/widget_red"
-            android:textSize="15sp"
-            android:textStyle="bold" />
-
-        <TextView
             android:id="@+id/tv_solar_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -95,7 +81,7 @@
             android:shadowDx="1"
             android:shadowDy="1"
             android:shadowRadius="3"
-            android:text="2026-08-24"
+            android:text="24/08/2026"
             android:textColor="@color/widget_muted"
             android:textSize="9sp" />
 
@@ -110,7 +96,7 @@
             android:shadowDx="1"
             android:shadowDy="1"
             android:shadowRadius="3"
-            android:text="Âm lịch: Mùng 2 tháng 7"
+            android:text="Âm lịch: 12 tháng 7"
             android:textColor="@color/widget_muted"
             android:textSize="8sp" />
     </LinearLayout>
@@ -231,7 +217,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:fontFamily="sans"
+            android:fontFamily="sans-serif"
             android:gravity="center_horizontal|top"
             android:includeFontPadding="false"
             android:paddingTop="2dp"
@@ -241,7 +227,7 @@
             android:shadowRadius="4"
             android:text="32"
             android:textColor="@color/widget_text"
-            android:textSize="54sp"
+            android:textSize="64sp"
             android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>
