@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 final class ExpenseParser {
     static final String[] CATEGORIES = {"Tiền chuyển đi", "Ăn uống", "Mua sắm", "Siêu thị", "Hóa đơn", "Giải trí", "Khách sạn", "Di chuyển", "Giáo dục", "Y tế", "Du lịch", "Chưa gắn thẻ"};
+    static final String[] SOURCES = {"Tiền Mặt", "Chuyển khoản", "Thẻ Tech", "Thẻ TP", "Thẻ VIB"};
 
     static final class Result {
         final long amount;
@@ -45,8 +46,11 @@ final class ExpenseParser {
     }
 
     private static String sourceFor(String s) {
-        if (s.contains("the techcombank") || s.contains("the tcb") || s.contains("credit techcombank")) return "Thẻ Techcombank";
-        if (s.contains("techcombank") || s.contains("tcb") || s.contains("bank techcombank")) return "Techcombank";
+        if (has(s, "the tech", "techcombank", "tcb")) return "Thẻ Tech";
+        if (has(s, "the tp", "tpbank", "tp bank")) return "Thẻ TP";
+        if (has(s, "the vib", "vib")) return "Thẻ VIB";
+        if (has(s, "chuyen khoan", "banking", "ck")) return "Chuyển khoản";
+        if (has(s, "tien mat", "cash")) return "Tiền Mặt";
         return "";
     }
 
