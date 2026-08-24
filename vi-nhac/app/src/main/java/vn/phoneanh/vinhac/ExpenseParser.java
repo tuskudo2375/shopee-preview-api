@@ -45,6 +45,10 @@ final class ExpenseParser {
         return new Result(amount, category, note.isEmpty() ? category : note, sourceFor(normalized));
     }
 
+    static String explicitSource(String raw) {
+        return sourceFor(plain(raw == null ? "" : raw.toLowerCase(Locale.ROOT)));
+    }
+
     private static String sourceFor(String s) {
         if (has(s, "the tech", "techcombank", "tcb")) return "Thẻ Tech";
         if (has(s, "the tp", "tpbank", "tp bank")) return "Thẻ TP";
@@ -55,7 +59,7 @@ final class ExpenseParser {
     }
 
     private static String categoryFor(String s) {
-        if (has(s, "chuyen tien", "chuyen khoan", "gui tien", "tien chuyen di")) return "Tiền chuyển đi";
+        if (has(s, "chuyen tien", "gui tien", "tien chuyen di")) return "Tiền chuyển đi";
         if (has(s, "an sang", "an trua", "an toi", "an vat", "tra sua", "cafe", "ca phe", "nuoc ngot", "banh", "com", "pho", "bun", "hu tieu", "thuc an", "an uong")) return "Ăn uống";
         if (has(s, "sieu thi", "winmart", "coopmart", "bach hoa", "go grocery")) return "Siêu thị";
         if (has(s, "dien", "nuoc", "wifi", "internet", "dien thoai", "tien nha", "hoa don")) return "Hóa đơn";
