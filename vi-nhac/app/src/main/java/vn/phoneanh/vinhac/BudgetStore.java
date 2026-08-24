@@ -74,6 +74,20 @@ final class BudgetStore {
         return false;
     }
 
+    boolean updateDateTime(JSONObject target, long millis) {
+        try {
+            JSONArray all = items(); long targetTime = target.optLong("time", -1);
+            LocalDate date = java.time.Instant.ofEpochMilli(millis).atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+            for (int i = 0; i < all.length(); i++) {
+                JSONObject item = all.getJSONObject(i);
+                boolean same = targetTime > 0 && item.optLong("time", -2) == targetTime;
+                if (!same && targetTime <= 0) same = item.optString("date").equals(target.optString("date")) && item.optLong("amount", -1) == target.optLong("amount", -2) && item.optString("raw").equals(target.optString("raw"));
+                if (same) { item.put("time", millis); item.put("date", date.toString()); prefs.edit().putString(HISTORY_KEY, all.toString()).apply(); return true; }
+            }
+        } catch (Exception ignored) {}
+        return false;
+    }
+
     JSONArray items() {
         JSONArray result = readHistoryOrMigrate();
         LocalDate cutoff = LocalDate.now().minusMonths(5).withDayOfMonth(1);
