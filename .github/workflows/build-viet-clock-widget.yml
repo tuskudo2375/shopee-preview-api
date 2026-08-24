@@ -5,7 +5,9 @@ on:
     branches:
       - feat/viet-clock-widget-apk
     paths:
-      - "android-widget/**"
+      - "app/**"
+      - "*.gradle.kts"
+      - "gradle.properties"
       - ".github/workflows/build-viet-clock-widget.yml"
   workflow_dispatch:
 
