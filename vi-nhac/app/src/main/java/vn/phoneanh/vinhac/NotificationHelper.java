@@ -36,7 +36,8 @@ final class NotificationHelper {
         PendingIntent reply = PendingIntent.getBroadcast(c, 2, replyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         RemoteInput input = new RemoteInput.Builder(INPUT_KEY).setLabel("Ví dụ: ăn trưa 30k").build();
         Notification.Action action = new Notification.Action.Builder(R.drawable.ic_wallet, "NHẬP NHANH", reply).addRemoteInput(input).build();
-        String title = s.budget() == 0 ? "Chạm để đặt ngân sách tháng" : "Còn " + Format.money(s.remaining()) + " trong tháng";
+        int daysRemaining = s.daysRemainingInclusive();
+        String title = s.budget() == 0 ? "Chạm để đặt ngân sách tháng" : "Còn " + Format.money(s.remaining()) + " trong " + daysRemaining + " ngày";
         String line = "Hôm nay: " + Format.money(s.todaySpent()) + " • Mức nên chi: " + Format.money(s.todayAllowance());
         if (over) line = "⚠ Đã vượt mức hôm nay • " + line;
         Notification notification = new Notification.Builder(c, STATUS_CHANNEL)
@@ -57,7 +58,7 @@ final class NotificationHelper {
         PendingIntent content = PendingIntent.getActivity(c, 3, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification n = new Notification.Builder(c, ALERT_CHANNEL).setSmallIcon(R.drawable.ic_wallet)
                 .setContentTitle(over ? "Bạn đang vượt mức chi hôm nay" : "Nhớ nhập chi tiêu nha")
-                .setContentText("Đã chi " + Format.money(s.todaySpent()) + " • Còn tháng " + Format.money(s.remaining()))
+                .setContentText("Đã chi " + Format.money(s.todaySpent()) + " • Còn " + Format.money(s.remaining()) + " trong " + s.daysRemainingInclusive() + " ngày")
                 .setContentIntent(content).setAutoCancel(true).setColor(Color.RED).build();
         c.getSystemService(NotificationManager.class).notify(1202, n);
     }
