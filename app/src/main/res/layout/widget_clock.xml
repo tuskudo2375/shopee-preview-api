@@ -115,10 +115,12 @@
             android:textSize="10sp" />
     </LinearLayout>
 
-    <View
+    <TextView
+        android:id="@+id/widget_divider"
         android:layout_width="1dp"
         android:layout_height="match_parent"
-        android:background="@drawable/widget_divider" />
+        android:background="@drawable/widget_divider"
+        android:text="" />
 
     <LinearLayout
         android:id="@+id/weather_block"
