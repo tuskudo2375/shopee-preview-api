@@ -12,6 +12,7 @@
 - Nhắc nhập chi tiêu lúc 10:00, 13:00 và 21:30; chuyển đỏ nếu vượt mức gợi ý trong ngày.
 - Dữ liệu nằm offline trong máy, tự tách theo tháng.
 - Lịch sử giữ toàn bộ khoản chi của tháng, nhóm theo từng ngày và hiện tổng tiền mỗi ngày.
+- Có thể nhập Gemini API key trong app để phân loại thông minh; key được mã hóa bằng Android Keystore. Khi API lỗi hoặc mất mạng, app tự dùng bộ lọc offline.
 
 ## Build
 

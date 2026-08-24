@@ -15,8 +15,7 @@ public class QuickExpenseReceiver extends BroadcastReceiver {
         if (text == null) return;
         ExpenseParser.Result parsed = ExpenseParser.parse(text.toString());
         if (parsed.amount <= 0) { Toast.makeText(context, "Chưa đọc được số tiền", Toast.LENGTH_LONG).show(); return; }
-        new BudgetStore(context).add(parsed, text.toString());
-        NotificationHelper.refresh(context);
-        Toast.makeText(context, "Đã thêm " + Format.money(parsed.amount) + " • " + parsed.category, Toast.LENGTH_SHORT).show();
+        PendingResult pending=goAsync(); String raw=text.toString();
+        new Thread(()->{String category=GeminiClassifier.classify(context,raw,parsed.category);ExpenseParser.Result smart=new ExpenseParser.Result(parsed.amount,category,parsed.note);new BudgetStore(context).add(smart,raw);NotificationHelper.refresh(context);new android.os.Handler(android.os.Looper.getMainLooper()).post(()->Toast.makeText(context,"Đã thêm "+Format.money(smart.amount)+" • "+smart.category,Toast.LENGTH_SHORT).show());pending.finish();}).start();
     }
 }
