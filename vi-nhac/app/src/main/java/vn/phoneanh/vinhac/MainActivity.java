@@ -36,6 +36,7 @@ public class MainActivity extends Activity {
     private LinearLayout root;
     private String filterStartDate;
     private String filterEndDate;
+    private String filterCategory;
     private final Set<String> filterSources = new LinkedHashSet<>();
 
     @Override protected void onCreate(Bundle state) {
@@ -79,17 +80,20 @@ public class MainActivity extends Activity {
         Button sourceButton = new Button(this); sourceButton.setText("NGUỒN TIỀN: " + store.defaultSource()); sourceButton.setTextColor(INK); sourceButton.setOnClickListener(v -> sourceDialog()); root.addView(sourceButton, top(4));
         EditText input = new EditText(this); input.setHint("Ví dụ: ăn trưa 30k"); input.setTextSize(18); input.setSingleLine(true); input.setPadding(dp(16),dp(14),dp(16),dp(14)); input.setBackground(card(Color.WHITE, 0xffdddddf)); root.addView(input, top(10));
         input.setOnFocusChangeListener((v, focused) -> { if (focused) scroll.postDelayed(() -> scroll.smoothScrollTo(0, Math.max(0, input.getBottom() - dp(180))), 220); });
+        final String[] selectedCategory = {""};
+        Button categoryButton = new Button(this); categoryButton.setText("MỤC TIÊU: TỰ ĐỘNG"); categoryButton.setTextColor(INK); categoryButton.setOnClickListener(v -> categoryDialog(categoryButton, selectedCategory, input)); root.addView(categoryButton, top(4));
         TextView preview = text("App sẽ tự đọc số tiền và phân loại", 14, MUTED, false); root.addView(preview, top(8));
         Button add = new Button(this); add.setText("THÊM CHI TIÊU"); add.setTextColor(Color.WHITE); add.setTypeface(Typeface.DEFAULT_BOLD); add.setBackground(card(RED, RED)); root.addView(add, top(12));
-        input.addTextChangedListener(new TextWatcher() { public void beforeTextChanged(CharSequence s,int a,int b,int c){} public void onTextChanged(CharSequence s,int a,int b,int c){ ExpenseParser.Result p=ExpenseParser.parse(s.toString()); preview.setText(p.amount>0 ? p.category+"  •  "+Format.money(p.amount) : "App sẽ tự đọc số tiền và phân loại"); } public void afterTextChanged(Editable e){} });
-        add.setOnClickListener(v -> { String raw=input.getText().toString(); ExpenseParser.Result p=ExpenseParser.parse(raw); if(p.amount<=0){input.setError("Nhập thêm số tiền, ví dụ 30k");return;} String selectedSource=p.source.isEmpty()?store.defaultSource():p.source; add.setEnabled(false);add.setText(secrets.hasApiKey()?"GEMINI ĐANG PHÂN LOẠI…":"ĐANG LƯU…");GeminiClassifier.classifyAsync(this,raw,p.category,(category,usedAi)->{ExpenseParser.Result smart=new ExpenseParser.Result(p.amount,category,p.note,selectedSource);store.add(smart,raw,selectedSource);NotificationHelper.refresh(this);Toast.makeText(this,"Đã thêm vào "+category+" • "+selectedSource,Toast.LENGTH_SHORT).show();draw();}); });
+        input.addTextChangedListener(new TextWatcher() { public void beforeTextChanged(CharSequence s,int a,int b,int c){} public void onTextChanged(CharSequence s,int a,int b,int c){ ExpenseParser.Result p=ExpenseParser.parse(s.toString()); String shown=selectedCategory[0].isEmpty()?p.category:selectedCategory[0]; categoryButton.setText("MỤC TIÊU: "+(selectedCategory[0].isEmpty()?"TỰ ĐỘNG":selectedCategory[0])); preview.setText(p.amount>0 ? shown+"  •  "+Format.money(p.amount) : "App sẽ tự đọc số tiền và phân loại"); } public void afterTextChanged(Editable e){} });
+        add.setOnClickListener(v -> { String raw=input.getText().toString(); ExpenseParser.Result p=ExpenseParser.parse(raw); if(p.amount<=0){input.setError("Nhập thêm số tiền, ví dụ 30k");return;} String selectedSource=p.source.isEmpty()?store.defaultSource():p.source; String manualCategory=selectedCategory[0]; add.setEnabled(false);add.setText(manualCategory.isEmpty()&&secrets.hasApiKey()?"GEMINI ĐANG PHÂN LOẠI…":"ĐANG LƯU…"); if(!manualCategory.isEmpty()){ ExpenseParser.Result smart=new ExpenseParser.Result(p.amount,manualCategory,p.note,selectedSource); store.add(smart,raw,selectedSource); NotificationHelper.refresh(this); Toast.makeText(this,"Đã thêm vào "+manualCategory+" • "+selectedSource,Toast.LENGTH_SHORT).show(); draw(); } else GeminiClassifier.classifyAsync(this,raw,p.category,(category,usedAi)->{ExpenseParser.Result smart=new ExpenseParser.Result(p.amount,category,p.note,selectedSource);store.add(smart,raw,selectedSource);NotificationHelper.refresh(this);Toast.makeText(this,"Đã thêm vào "+category+" • "+selectedSource,Toast.LENGTH_SHORT).show();draw();}); });
 
-        String historyTitle = filterStartDate == null && filterSources.isEmpty() ? "Chi tiêu trong 6 tháng" : "Lịch sử đã lọc";
+        String historyTitle = filterStartDate == null && filterSources.isEmpty() && filterCategory == null ? "Chi tiêu trong 6 tháng" : "Lịch sử đã lọc";
         root.addView(text(historyTitle, 22, INK, true), top(28));
         LinearLayout filterRow = new LinearLayout(this); filterRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         Button filter = new Button(this); filter.setText(dateFilterLabel()); filter.setTextColor(RED); filter.setOnClickListener(v -> showDateFilter()); filterRow.addView(filter, new LinearLayout.LayoutParams(0, -2, 1));
         Button sourceFilter = new Button(this); sourceFilter.setText(filterSources.isEmpty() ? "NGUỒN: TẤT CẢ" : "NGUỒN: " + filterSources.size() + " ĐÃ CHỌN"); sourceFilter.setTextColor(RED); sourceFilter.setOnClickListener(v -> filterSourceDialog()); filterRow.addView(sourceFilter, new LinearLayout.LayoutParams(0, -2, 1));
-        if (filterStartDate != null || !filterSources.isEmpty()) { Button clear = new Button(this); clear.setText("XÓA"); clear.setTextColor(MUTED); clear.setOnClickListener(v -> { filterStartDate=null; filterEndDate=null; filterSources.clear(); draw(); }); filterRow.addView(clear, new LinearLayout.LayoutParams(-2, -2)); }
+        Button categoryFilter = new Button(this); categoryFilter.setText(filterCategory == null ? "MỤC: TẤT CẢ" : "MỤC: " + filterCategory); categoryFilter.setTextColor(RED); categoryFilter.setOnClickListener(v -> filterCategoryDialog()); filterRow.addView(categoryFilter, new LinearLayout.LayoutParams(0, -2, 1));
+        if (filterStartDate != null || !filterSources.isEmpty() || filterCategory != null) { Button clear = new Button(this); clear.setText("XÓA"); clear.setTextColor(MUTED); clear.setOnClickListener(v -> { filterStartDate=null; filterEndDate=null; filterSources.clear(); filterCategory=null; draw(); }); filterRow.addView(clear, new LinearLayout.LayoutParams(-2, -2)); }
         root.addView(filterRow, top(4));
         JSONArray items = store.items();
         boolean found = false;
@@ -101,6 +105,7 @@ public class MainActivity extends Activity {
             if (filterStartDate != null && itemDate.isBefore(LocalDate.parse(filterStartDate))) continue;
             if (filterEndDate != null && itemDate.isAfter(LocalDate.parse(filterEndDate))) continue;
             if (!filterSources.isEmpty() && !filterSources.contains(item.optString("source", "Tiền mặt"))) continue;
+            if (filterCategory != null && !filterCategory.equals(item.optString("category", "Chưa gắn thẻ"))) continue;
             found = true;
             if (!date.equals(activeDate)) {
                 activeDate = date;
@@ -108,7 +113,7 @@ public class MainActivity extends Activity {
             }
             root.addView(expense(item), top(7));
         } catch(Exception ignored){}
-        if (!found) root.addView(text(filterStartDate == null && filterSources.isEmpty() ? "Chưa có khoản chi trong 6 tháng gần đây." : "Không có khoản chi phù hợp với bộ lọc.",15,MUTED,false),top(12));
+        if (!found) root.addView(text(filterStartDate == null && filterSources.isEmpty() && filterCategory == null ? "Chưa có khoản chi trong 6 tháng gần đây." : "Không có khoản chi phù hợp với bộ lọc.",15,MUTED,false),top(12));
     }
 
     private void showDateFilter() {
@@ -138,7 +143,7 @@ public class MainActivity extends Activity {
 
     private long dayTotal(JSONArray items, String date) {
         long total = 0;
-        for (int i=0; i<items.length(); i++) try { JSONObject o=items.getJSONObject(i); if(date.equals(o.getString("date")) && (filterSources.isEmpty() || filterSources.contains(o.optString("source", "Tiền mặt")))) total += o.getLong("amount"); } catch(Exception ignored){}
+        for (int i=0; i<items.length(); i++) try { JSONObject o=items.getJSONObject(i); if(date.equals(o.getString("date")) && (filterSources.isEmpty() || filterSources.contains(o.optString("source", "Tiền mặt"))) && (filterCategory == null || filterCategory.equals(o.optString("category", "Chưa gắn thẻ")))) total += o.getLong("amount"); } catch(Exception ignored){}
         return total;
     }
 
@@ -154,6 +159,8 @@ public class MainActivity extends Activity {
     private void geminiDialog(){SecretStore s=new SecretStore(this);EditText e=new EditText(this);e.setHint("Dán Gemini API key");e.setSingleLine(true);e.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);int p=dp(20);LinearLayout wrap=new LinearLayout(this);wrap.setPadding(p,0,p,0);wrap.addView(e,new LinearLayout.LayoutParams(-1,-2));new AlertDialog.Builder(this).setTitle("Gemini phân loại thông minh").setMessage("Key được mã hóa bằng Android Keystore và chỉ lưu trên máy. Khi Gemini lỗi hoặc mất mạng, app dùng bộ lọc offline.").setView(wrap).setNegativeButton("Hủy",null).setNeutralButton("Xóa key",(d,w)->{s.setApiKey("");draw();}).setPositiveButton("Lưu",(d,w)->{if(e.getText().toString().trim().isEmpty()){Toast.makeText(this,"Chưa có API key",Toast.LENGTH_SHORT).show();return;}s.setApiKey(e.getText().toString());Toast.makeText(this,"Đã bật Gemini",Toast.LENGTH_SHORT).show();draw();}).show();}
     private void sourceDialog(){java.util.List<String> values=store.sources();String current=store.defaultSource();int checked=Math.max(0,values.indexOf(current));new AlertDialog.Builder(this).setTitle("Nguồn tiền mặc định").setSingleChoiceItems(values.toArray(new String[0]),checked,(d,which)->{store.setDefaultSource(values.get(which));d.dismiss();draw();}).setNeutralButton("Thêm nguồn",(d,w)->customSourceDialog()).setNegativeButton("Hủy",null).show();}
     private void filterSourceDialog(){java.util.List<String> values=store.sources();boolean[] checked=new boolean[values.size()];for(int i=0;i<values.size();i++)checked[i]=filterSources.contains(values.get(i));new AlertDialog.Builder(this).setTitle("Lọc theo nguồn chi").setMultiChoiceItems(values.toArray(new String[0]),checked,(d,which,isChecked)->checked[which]=isChecked).setNegativeButton("Hủy",null).setPositiveButton("ÁP DỤNG",(d,w)->{filterSources.clear();for(int i=0;i<values.size();i++)if(checked[i])filterSources.add(values.get(i));draw();}).show();}
+    private void filterCategoryDialog(){String[] values=new String[ExpenseParser.CATEGORIES.length+1];values[0]="Tất cả mục tiêu";System.arraycopy(ExpenseParser.CATEGORIES,0,values,1,ExpenseParser.CATEGORIES.length);int checked=filterCategory==null?0:Math.max(0,java.util.Arrays.asList(values).indexOf(filterCategory));new AlertDialog.Builder(this).setTitle("Lọc theo mục tiêu").setSingleChoiceItems(values,checked,(d,which)->{filterCategory=which==0?null:values[which];d.dismiss();draw();}).setNegativeButton("Hủy",null).show();}
+    private void categoryDialog(Button button,String[] selected,EditText input){String[] values=new String[ExpenseParser.CATEGORIES.length+1];values[0]="TỰ ĐỘNG (app tự phân loại)";System.arraycopy(ExpenseParser.CATEGORIES,0,values,1,ExpenseParser.CATEGORIES.length);int checked=selected[0].isEmpty()?0:Math.max(0,java.util.Arrays.asList(values).indexOf(selected[0]));new AlertDialog.Builder(this).setTitle("Chọn mục tiêu chi tiêu").setSingleChoiceItems(values,checked,(d,which)->{selected[0]=which==0?"":values[which];button.setText("MỤC TIÊU: "+(selected[0].isEmpty()?"TỰ ĐỘNG":selected[0]));d.dismiss();}).setNegativeButton("Hủy",null).show();}
     private void customSourceDialog(){EditText e=new EditText(this);e.setHint("Ví dụ: Ví MoMo, thẻ Visa...");e.setSingleLine(true);int p=dp(20);LinearLayout wrap=new LinearLayout(this);wrap.setPadding(p,0,p,0);wrap.addView(e,new LinearLayout.LayoutParams(-1,-2));new AlertDialog.Builder(this).setTitle("Thêm nguồn tiền").setView(wrap).setNegativeButton("Hủy",null).setPositiveButton("Lưu",(d,w)->{String value=e.getText().toString().trim();if(!value.isEmpty()){store.addSource(value);store.setDefaultSource(value);draw();}}).show();}
     private TextView text(String s,int size,int color,boolean bold){TextView v=new TextView(this);v.setText(s);v.setTextSize(size);v.setTextColor(color);if(bold)v.setTypeface(Typeface.DEFAULT_BOLD);return v;}
     private GradientDrawable card(int fill,int stroke){GradientDrawable g=new GradientDrawable();g.setColor(fill);g.setCornerRadius(dp(14));g.setStroke(dp(1),stroke);return g;}
