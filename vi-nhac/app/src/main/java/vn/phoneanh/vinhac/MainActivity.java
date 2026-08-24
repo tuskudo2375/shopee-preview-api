@@ -3,6 +3,7 @@ package titus.expenseassistant;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -25,11 +26,13 @@ import org.json.JSONObject;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.Calendar;
 
 public class MainActivity extends Activity {
     private final int RED = Color.rgb(217,45,32), GREEN = Color.rgb(26,127,75), INK = Color.rgb(28,28,30), MUTED = Color.rgb(105,105,110);
     private BudgetStore store;
     private LinearLayout root;
+    private String filterDate;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state); store = new BudgetStore(this);
@@ -73,19 +76,36 @@ public class MainActivity extends Activity {
         input.addTextChangedListener(new TextWatcher() { public void beforeTextChanged(CharSequence s,int a,int b,int c){} public void onTextChanged(CharSequence s,int a,int b,int c){ ExpenseParser.Result p=ExpenseParser.parse(s.toString()); preview.setText(p.amount>0 ? p.category+"  •  "+Format.money(p.amount) : "App sẽ tự đọc số tiền và phân loại"); } public void afterTextChanged(Editable e){} });
         add.setOnClickListener(v -> { String raw=input.getText().toString(); ExpenseParser.Result p=ExpenseParser.parse(raw); if(p.amount<=0){input.setError("Nhập thêm số tiền, ví dụ 30k");return;} add.setEnabled(false);add.setText(secrets.hasApiKey()?"GEMINI ĐANG PHÂN LOẠI…":"ĐANG LƯU…");GeminiClassifier.classifyAsync(this,raw,p.category,(category,usedAi)->{ExpenseParser.Result smart=new ExpenseParser.Result(p.amount,category,p.note);store.add(smart,raw);NotificationHelper.refresh(this);Toast.makeText(this,"Đã thêm vào "+category+(secrets.hasApiKey()?" • Gemini":""),Toast.LENGTH_SHORT).show();draw();}); });
 
-        root.addView(text("Chi tiêu trong tháng", 22, INK, true), top(28));
+        root.addView(text(filterDate == null ? "Chi tiêu trong 6 tháng" : "Chi tiêu ngày " + filterDate, 22, INK, true), top(28));
+        LinearLayout filterRow = new LinearLayout(this); filterRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        Button filter = new Button(this); filter.setText(filterDate == null ? "LỌC THEO NGÀY" : "ĐỔI NGÀY"); filter.setTextColor(RED); filter.setOnClickListener(v -> showDateFilter()); filterRow.addView(filter, new LinearLayout.LayoutParams(0, -2, 1));
+        if (filterDate != null) { Button clear = new Button(this); clear.setText("XÓA LỌC"); clear.setTextColor(MUTED); clear.setOnClickListener(v -> { filterDate=null; draw(); }); filterRow.addView(clear, new LinearLayout.LayoutParams(-2, -2)); }
+        root.addView(filterRow, top(4));
         JSONArray items = store.items();
-        if (items.length() == 0) root.addView(text("Chưa có khoản chi nào trong tháng.",15,MUTED,false),top(10));
+        boolean found = false;
         String activeDate = "";
         for (int i=items.length()-1; i>=0; i--) try {
             JSONObject item = items.getJSONObject(i);
             String date = item.getString("date");
+            if (filterDate != null && !filterDate.equals(date)) continue;
+            found = true;
             if (!date.equals(activeDate)) {
                 activeDate = date;
                 root.addView(dayHeader(date, dayTotal(items, date)), top(16));
             }
             root.addView(expense(item), top(7));
         } catch(Exception ignored){}
+        if (!found) root.addView(text(filterDate == null ? "Chưa có khoản chi trong 6 tháng gần đây." : "Ngày này chưa có khoản chi.",15,MUTED,false),top(12));
+    }
+
+    private void showDateFilter() {
+        Calendar today = Calendar.getInstance();
+        LocalDate selected = filterDate == null ? LocalDate.now() : LocalDate.parse(filterDate);
+        DatePickerDialog dialog = new DatePickerDialog(this, (view, year, month, day) -> {
+            filterDate = String.format(Locale.ROOT, "%04d-%02d-%02d", year, month + 1, day); draw();
+        }, selected.getYear(), selected.getMonthValue() - 1, selected.getDayOfMonth());
+        Calendar minimum = Calendar.getInstance(); minimum.add(Calendar.MONTH, -5); minimum.set(Calendar.DAY_OF_MONTH, 1);
+        dialog.getDatePicker().setMinDate(minimum.getTimeInMillis()); dialog.getDatePicker().setMaxDate(today.getTimeInMillis()); dialog.show();
     }
 
     private View dayHeader(String isoDate, long total) {

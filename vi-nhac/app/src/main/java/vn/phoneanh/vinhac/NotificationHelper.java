@@ -30,6 +30,8 @@ final class NotificationHelper {
         boolean over = s.todaySpent() > s.todayAllowance() && s.todaySpent() > 0;
         Intent open = new Intent(c, MainActivity.class);
         PendingIntent content = PendingIntent.getActivity(c, 1, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent deletedIntent = new Intent(c, PersistentNotificationReceiver.class).setAction(PersistentNotificationReceiver.ACTION_RESTORE);
+        PendingIntent deleted = PendingIntent.getBroadcast(c, 4, deletedIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Intent replyIntent = new Intent(c, QuickExpenseReceiver.class);
         PendingIntent reply = PendingIntent.getBroadcast(c, 2, replyIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         RemoteInput input = new RemoteInput.Builder(INPUT_KEY).setLabel("Ví dụ: ăn trưa 30k").build();
@@ -37,11 +39,15 @@ final class NotificationHelper {
         String title = s.budget() == 0 ? "Chạm để đặt ngân sách tháng" : "Còn " + Format.money(s.remaining()) + " trong tháng";
         String line = "Hôm nay: " + Format.money(s.todaySpent()) + " • Mức nên chi: " + Format.money(s.todayAllowance());
         if (over) line = "⚠ Đã vượt mức hôm nay • " + line;
-        return new Notification.Builder(c, STATUS_CHANNEL)
+        Notification notification = new Notification.Builder(c, STATUS_CHANNEL)
                 .setSmallIcon(R.drawable.ic_wallet).setContentTitle(title).setContentText(line)
                 .setStyle(new Notification.BigTextStyle().bigText(line + "\nNhập như: trà sữa 50k"))
                 .setContentIntent(content).addAction(action).setOngoing(true).setOnlyAlertOnce(true)
-                .setColor(over ? Color.RED : Color.rgb(26, 127, 75)).setCategory(Notification.CATEGORY_STATUS).build();
+                .setAutoCancel(false).setDeleteIntent(deleted).setShowWhen(false).setLocalOnly(true)
+                .setVisibility(Notification.VISIBILITY_PRIVATE).setColor(over ? Color.RED : Color.rgb(26, 127, 75))
+                .setCategory(Notification.CATEGORY_STATUS).build();
+        notification.flags |= Notification.FLAG_ONGOING_EVENT | Notification.FLAG_NO_CLEAR;
+        return notification;
     }
 
     static void reminder(Context c) {
