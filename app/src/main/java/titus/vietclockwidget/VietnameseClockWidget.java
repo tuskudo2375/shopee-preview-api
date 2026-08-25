@@ -127,13 +127,10 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         String hour = twoDigits(now.get(Calendar.HOUR_OF_DAY));
         String minute = twoDigits(now.get(Calendar.MINUTE));
 
-        views.setTextViewText(R.id.tv_hour_tens, hour.substring(0, 1));
-        views.setTextViewText(R.id.tv_hour_ones, hour.substring(1, 2));
-        int white = context.getResources().getColor(R.color.widget_text);
-        int red = context.getResources().getColor(R.color.widget_red);
-        views.setTextColor(R.id.tv_hour_tens, hour.charAt(0) == '1' ? red : white);
-        views.setTextColor(R.id.tv_hour_ones, hour.charAt(1) == '1' ? red : white);
-        views.setTextViewText(R.id.tv_minute, minute);
+        views.setImageViewResource(R.id.iv_hour_tens, digitResource(hour.charAt(0), true));
+        views.setImageViewResource(R.id.iv_hour_ones, digitResource(hour.charAt(1), true));
+        views.setImageViewResource(R.id.iv_minute_tens, digitResource(minute.charAt(0), false));
+        views.setImageViewResource(R.id.iv_minute_ones, digitResource(minute.charAt(1), false));
         views.setTextViewText(R.id.tv_weekday, weekday(now.get(Calendar.DAY_OF_WEEK)));
         views.setTextViewText(R.id.tv_solar_date, String.format(
                 Locale.US,
@@ -376,6 +373,22 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         if ("storm".equals(icon)) return R.drawable.ic_weather_storm;
         if ("cloud".equals(icon)) return R.drawable.ic_weather_cloud;
         return R.drawable.ic_weather_sun;
+    }
+
+    private static int digitResource(char digit, boolean redOne) {
+        if (redOne && digit == '1') return R.drawable.digit_1_red;
+        switch (digit) {
+            case '0': return R.drawable.digit_0_white;
+            case '1': return R.drawable.digit_1_white;
+            case '2': return R.drawable.digit_2_white;
+            case '3': return R.drawable.digit_3_white;
+            case '4': return R.drawable.digit_4_white;
+            case '5': return R.drawable.digit_5_white;
+            case '6': return R.drawable.digit_6_white;
+            case '7': return R.drawable.digit_7_white;
+            case '8': return R.drawable.digit_8_white;
+            default: return R.drawable.digit_9_white;
+        }
     }
 
     private static void scheduleMinuteUpdates(Context context) {
