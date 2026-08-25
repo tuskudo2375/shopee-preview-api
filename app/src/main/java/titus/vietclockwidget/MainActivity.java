@@ -51,7 +51,7 @@ public class MainActivity extends Activity {
         root.addView(title, new LinearLayout.LayoutParams(-1, -2));
 
         TextView description = new TextView(this);
-        description.setText("Hiển thị giờ, thời tiết theo vị trí và lịch âm Việt Nam trên widget 4×2.");
+        description.setText("Hiển thị giờ, thời tiết đúng quận/huyện theo vị trí chính xác và lịch âm Việt Nam trên widget 4×2.");
         description.setTextColor(Color.DKGRAY);
         description.setTextSize(16);
         description.setGravity(Gravity.CENTER);
@@ -87,7 +87,7 @@ public class MainActivity extends Activity {
 
     private void requestLocation() {
         if (statusView != null) {
-            statusView.setText("Vui lòng cho phép truy cập vị trí để hiện thời tiết đúng khu vực.");
+            statusView.setText("Vui lòng chọn Vị trí chính xác để thời tiết nhận đúng quận/huyện.");
         }
         requestPermissions(new String[]{
                 Manifest.permission.ACCESS_COARSE_LOCATION,

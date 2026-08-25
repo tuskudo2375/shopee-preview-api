@@ -17,6 +17,7 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.os.Build;
 import android.text.TextUtils;
 import android.widget.RemoteViews;
 
@@ -36,6 +37,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public class VietnameseClockWidget extends AppWidgetProvider {
     static final String ACTION_REFRESH = "titus.vietclockwidget.ACTION_REFRESH";
@@ -60,6 +63,10 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static final String[] WEATHER_INFO_PATHS = {"oplus_weather_info", "weather_info"};
     private static final String[] CITY_PATHS = {"attent_city", "resident_city"};
     private static final String[] ALERT_PATHS = {"weather_warn", "weather_warning"};
+    private static final String[] LOCATION_CALLBACK_URIS = {
+            "content://com.oplus.weather.provider.locationCallBack",
+            "content://com.coloros.weather.provider.locationCallBack"
+    };
     private static final String[] WEATHER_UPDATE_ACTIONS = {
             "com.oplus.weather.action.update_weather",
             "com.oplus.weather.action.updatecomplete",
@@ -186,7 +193,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
             views.setTextViewText(R.id.tv_high_temp, "▲ —°");
             views.setTextViewText(R.id.tv_location, "Bật vị trí");
             views.setTextViewText(R.id.tv_condition, "Bật vị trí để cập nhật");
-            views.setImageViewResource(R.id.iv_weather_icon, R.drawable.ic_weather_sun);
+            views.setImageViewResource(R.id.iv_weather_icon, R.drawable.weather_sun);
         }
 
         Intent openApp = new Intent(context, MainActivity.class)
@@ -212,16 +219,22 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     }
 
     private static WeatherData fetchWeather(Context context) {
-        WeatherData systemWeather = fetchColorOsWeather(context);
-        if (systemWeather.ready) {
-            return systemWeather;
-        }
+        Location location = preciseLocation(context);
+        WeatherData systemWeather = fetchColorOsWeather(context, location);
+        WeatherData preciseWeather = fetchWeatherFromNetwork(context, location);
 
-        return fetchWeatherFromNetwork(context);
+        // ColorOS remains the source for its warning feed, while the coordinate
+        // forecast prevents a province-wide city result from hiding the district.
+        if (preciseWeather.ready) {
+            if (systemWeather.ready && !TextUtils.isEmpty(systemWeather.alert)) {
+                return withAlert(preciseWeather, systemWeather.alert);
+            }
+            return preciseWeather;
+        }
+        return systemWeather.ready ? systemWeather : WeatherData.unavailable();
     }
 
-    private static WeatherData fetchWeatherFromNetwork(Context context) {
-        Location location = lastKnownLocation(context);
+    private static WeatherData fetchWeatherFromNetwork(Context context, Location location) {
         if (location == null) {
             return WeatherData.unavailable();
         }
@@ -303,7 +316,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
      * intentionally tried before the network fallback so the widget follows
      * the phone's selected location, language, icon data and warning feed.
      */
-    private static WeatherData fetchColorOsWeather(Context context) {
+    private static WeatherData fetchColorOsWeather(Context context, Location location) {
         ContentResolver resolver = context.getContentResolver();
         for (String authority : COLOROS_WEATHER_AUTHORITIES) {
             for (String path : WEATHER_INFO_PATHS) {
@@ -325,7 +338,13 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                         continue;
                     }
 
-                    String city = findSystemCity(resolver, authority, row.cityId);
+                    String city = locationName(context, location);
+                    if (isFallbackLocationName(city)) {
+                        city = firstNonEmpty(
+                                findCallbackCity(resolver),
+                                findSystemCity(resolver, authority, row.cityId)
+                        );
+                    }
                     String alert = firstNonEmpty(row.alert, findSystemAlert(resolver, authority, row.cityId));
                     return new WeatherData(
                             TextUtils.isEmpty(city) ? "Vị trí hiện tại" : city,
@@ -446,6 +465,38 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 }
             } catch (SecurityException | IllegalArgumentException ignored) {
                 // Try the next provider alias/path.
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String findCallbackCity(ContentResolver resolver) {
+        for (String callbackUri : LOCATION_CALLBACK_URIS) {
+            Cursor cursor = null;
+            try {
+                cursor = resolver.query(Uri.parse(callbackUri), null, null, null, null);
+                if (cursor == null) {
+                    continue;
+                }
+                while (cursor.moveToNext()) {
+                    String name = firstNonEmpty(
+                            stringValue(cursor, "district_name"),
+                            stringValue(cursor, "sub_locality"),
+                            stringValue(cursor, "county"),
+                            stringValue(cursor, "city_name"),
+                            stringValue(cursor, "placeName"),
+                            stringValue(cursor, "locality")
+                    );
+                    if (!TextUtils.isEmpty(name)) {
+                        return cleanLocationName(name);
+                    }
+                }
+            } catch (SecurityException | IllegalArgumentException ignored) {
+                // The callback provider is private on some ColorOS releases.
             } finally {
                 if (cursor != null) {
                     cursor.close();
@@ -645,6 +696,63 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         return best;
     }
 
+    private static Location preciseLocation(Context context) {
+        Location last = lastKnownLocation(context);
+        Location current = requestCurrentLocation(context);
+        if (current == null) {
+            return last;
+        }
+        if (last == null || current.getAccuracy() <= last.getAccuracy()
+                || current.getTime() >= last.getTime()) {
+            return current;
+        }
+        return last;
+    }
+
+    private static Location requestCurrentLocation(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+            return null;
+        }
+        boolean coarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+        boolean fine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+        if (!coarse && !fine) {
+            return null;
+        }
+
+        LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
+        CountDownLatch latch = new CountDownLatch(1);
+        final Location[] result = new Location[1];
+        String[] providers = {LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER};
+        for (String provider : providers) {
+            try {
+                if (!manager.isProviderEnabled(provider)) {
+                    continue;
+                }
+                manager.getCurrentLocation(
+                        provider,
+                        null,
+                        context.getMainExecutor(),
+                        location -> {
+                            if (location != null && result[0] == null) {
+                                result[0] = location;
+                                latch.countDown();
+                            }
+                        }
+                );
+            } catch (SecurityException | IllegalArgumentException ignored) {
+                // Try the other provider, then use the last known fix.
+            }
+        }
+        try {
+            latch.await(2500L, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+        return result[0];
+    }
+
     private static String locationName(Context context, Location location) {
         String fallback = "Vị trí hiện tại";
         if (!Geocoder.isPresent()) {
@@ -680,6 +788,23 @@ public class VietnameseClockWidget extends AppWidgetProvider {
             }
         }
         return value.isEmpty() ? "Vị trí hiện tại" : value;
+    }
+
+    private static boolean isFallbackLocationName(String name) {
+        return TextUtils.isEmpty(name) || "Vị trí hiện tại".equals(name);
+    }
+
+    private static WeatherData withAlert(WeatherData weather, String alert) {
+        return new WeatherData(
+                weather.city,
+                weather.low,
+                weather.high,
+                weather.temperature,
+                weather.condition,
+                weather.icon,
+                alert,
+                weather.ready
+        );
     }
 
     private static String readAll(InputStream inputStream) throws Exception {
@@ -731,10 +856,10 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     }
 
     private static int weatherIconResource(String icon) {
-        if ("rain".equals(icon)) return R.drawable.ic_weather_rain;
-        if ("storm".equals(icon)) return R.drawable.ic_weather_storm;
-        if ("cloud".equals(icon)) return R.drawable.ic_weather_cloud;
-        return R.drawable.ic_weather_sun;
+        if ("rain".equals(icon)) return R.drawable.weather_rain;
+        if ("storm".equals(icon)) return R.drawable.weather_storm;
+        if ("cloud".equals(icon)) return R.drawable.weather_cloud;
+        return R.drawable.weather_sun;
     }
 
     private static int digitResource(char digit, boolean redOne) {

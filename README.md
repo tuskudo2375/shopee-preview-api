@@ -2,18 +2,20 @@
 
 Widget Android native dành cho màn hình chính:
 
-- Hiển thị giờ 24h, thứ, tháng và ngày dương lịch bằng tiếng Việt.
+- Hiển thị giờ 24h bằng chữ số ảnh Montserrat Black lớn; riêng mọi chữ số `1` trong phần giờ có màu đỏ.
+- Hiển thị thứ, ngày dương lịch dạng `DD/MM/YYYY` và lịch âm bằng tiếng Việt.
 - Tính và hiển thị lịch âm Việt Nam trực tiếp trên máy.
-- Lấy vị trí hiện tại bằng LocationManager, không phụ thuộc Google Play Services.
-- Ưu tiên đọc vị trí, nhiệt độ, biểu tượng và cảnh báo từ dịch vụ thời tiết ColorOS
-  (`com.coloros.weather2`); chỉ dùng Open-Meteo khi máy không cho đọc dữ liệu hệ thống.
+- Lấy tọa độ mới bằng LocationManager, không phụ thuộc Google Play Services; dùng Geocoder để hiện đúng quận/huyện hoặc phường/xã.
+- Đọc cảnh báo và dữ liệu vị trí từ dịch vụ thời tiết ColorOS (`com.coloros.weather2`) khi được hệ thống cho phép.
+- Dùng dự báo theo đúng tọa độ hiện tại để tránh rơi về dữ liệu tổng thể của tỉnh; nếu ColorOS chỉ trả dữ liệu thô, cảnh báo hệ thống vẫn được giữ lại.
+- Icon thời tiết là ảnh PNG sticker có viền đậm, không dùng bộ vector cũ.
 - Tự làm mới giờ mỗi phút và thời tiết theo chu kỳ 30 phút.
 - Nhấn vùng thời tiết để làm mới, nhấn vùng còn lại để mở phần cấp quyền.
 
 ## Cách dùng
 
 1. Cài APK sau khi build project.
-2. Mở **Đồng hồ Việt** một lần và cho phép quyền vị trí.
+2. Mở **Đồng hồ Việt** một lần và cho phép quyền vị trí; trong ColorOS nên chọn **Vị trí chính xác**.
 3. Thêm widget **Đồng hồ Việt** kích cỡ 4×2 vào màn hình chính.
 
 ## Build
