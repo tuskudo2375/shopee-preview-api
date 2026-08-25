@@ -43,7 +43,6 @@ import java.util.concurrent.TimeUnit;
 public class VietnameseClockWidget extends AppWidgetProvider {
     static final String ACTION_REFRESH = "titus.vietclockwidget.ACTION_REFRESH";
     static final String ACTION_MINUTE = "titus.vietclockwidget.ACTION_MINUTE";
-    static final String ACTION_ANIMATION = "titus.vietclockwidget.ACTION_ANIMATION";
     private static final String PREFS = "widget_weather";
     private static final String KEY_READY = "ready";
     private static final String KEY_CITY = "city";
@@ -55,7 +54,6 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static final String KEY_ALERT = "alert";
     private static final String KEY_UPDATED = "updated";
     private static final long MINUTE = 60_000L;
-    private static final long ANIMATION_TICK = 10_000L;
     private static final Pattern NUMBER_PATTERN = Pattern.compile("[-+]?\\d+(?:[.,]\\d+)?");
     private static final String[] COLOROS_WEATHER_AUTHORITIES = {
             "com.coloros.weather.service.provider.data",
@@ -100,8 +98,9 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? null : intent.getAction();
-        if (ACTION_MINUTE.equals(action) || ACTION_ANIMATION.equals(action)) {
+        if (ACTION_MINUTE.equals(action)) {
             updateAllCached(context);
+            refreshWeatherAsync(context, getWidgetIds(context));
             return;
         }
         if (ACTION_REFRESH.equals(action)
@@ -160,16 +159,46 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static void updateView(Context context, AppWidgetManager manager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_clock);
         Calendar now = Calendar.getInstance();
+        String hour = twoDigits(now.get(Calendar.HOUR_OF_DAY));
+        String minute = twoDigits(now.get(Calendar.MINUTE));
+
+        // Only the hour's units digit is red; all other digits stay white.
+        views.setImageViewResource(R.id.iv_hour_tens, digitResource(hour.charAt(0), false));
+        views.setImageViewResource(R.id.iv_hour_ones, digitResource(hour.charAt(1), true));
+        views.setImageViewResource(R.id.iv_time_separator, R.drawable.time_separator);
+        views.setImageViewResource(R.id.iv_minute_tens, digitResource(minute.charAt(0), false));
+        views.setImageViewResource(R.id.iv_minute_ones, digitResource(minute.charAt(1), false));
+        views.setImageViewResource(R.id.iv_weekday_image,
+                weekdayImageResource(now.get(Calendar.DAY_OF_WEEK)));
+        views.setTextViewText(R.id.tv_solar_date, String.format(
+                Locale.US,
+                "%02d/%02d/%04d",
+                now.get(Calendar.DAY_OF_MONTH),
+                now.get(Calendar.MONTH) + 1,
+                now.get(Calendar.YEAR)
+        ));
+        views.setTextViewText(R.id.tv_lunar_date, LunarCalendar.shortLabel(now));
+
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         boolean ready = prefs.getBoolean(KEY_READY, false);
-        String city = prefs.getString(KEY_CITY, "Vị trí hiện tại");
-        String temperature = prefs.getString(KEY_TEMP, "");
-        String condition = prefs.getString(KEY_CONDITION, "Đang cập nhật");
-        String icon = prefs.getString(KEY_ICON, "sun");
-        String alert = prefs.getString(KEY_ALERT, "");
-        views.setImageViewBitmap(R.id.iv_clock_canvas,
-                ClockCanvasRenderer.render(context, now, city, temperature,
-                        condition, icon, alert, ready));
+        views.setImageViewResource(R.id.iv_location, R.drawable.ic_location);
+        if (ready) {
+            views.setTextViewText(R.id.tv_low_temp, "▼ " + prefs.getString(KEY_LOW, "—") + "°");
+            views.setTextViewText(R.id.tv_high_temp, "▲ " + prefs.getString(KEY_HIGH, "—") + "°");
+            views.setTextViewText(R.id.tv_location, prefs.getString(KEY_CITY, "Vị trí hiện tại"));
+            String alert = prefs.getString(KEY_ALERT, "");
+            String condition = prefs.getString(KEY_CONDITION, "Đang cập nhật");
+            views.setTextViewText(R.id.tv_condition,
+                    TextUtils.isEmpty(alert) ? condition : "⚠ " + alert);
+            views.setImageViewResource(R.id.iv_weather_icon,
+                    weatherIconResource(prefs.getString(KEY_ICON, "sun")));
+        } else {
+            views.setTextViewText(R.id.tv_low_temp, "▼ —°");
+            views.setTextViewText(R.id.tv_high_temp, "▲ —°");
+            views.setTextViewText(R.id.tv_location, "Bật vị trí");
+            views.setTextViewText(R.id.tv_condition, "Bật vị trí để cập nhật");
+            views.setImageViewResource(R.id.iv_weather_icon, R.drawable.weather_sun);
+        }
 
         Intent openApp = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -189,6 +218,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent);
+        views.setOnClickPendingIntent(R.id.weather_block, refreshPendingIntent);
         manager.updateAppWidget(appWidgetId, views);
     }
 
@@ -309,12 +339,15 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                         continue;
                     }
 
-                    String city = locationName(context, location);
+                    // Ask ColorOS for the district first. The weather row often
+                    // contains only a province/city label, while the callback
+                    // carries the location chosen by the phone's GPS service.
+                    String city = findCallbackCity(resolver);
                     if (isFallbackLocationName(city)) {
-                        city = firstNonEmpty(
-                                findCallbackCity(resolver),
-                                findSystemCity(resolver, authority, row.cityId)
-                        );
+                        city = locationName(context, location);
+                    }
+                    if (isFallbackLocationName(city)) {
+                        city = findSystemCity(resolver, authority, row.cityId);
                     }
                     String alert = firstNonEmpty(row.alert, findSystemAlert(resolver, authority, row.cityId));
                     return new WeatherData(
@@ -456,11 +489,12 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 while (cursor.moveToNext()) {
                     String name = firstNonEmpty(
                             stringValue(cursor, "district_name"),
+                            stringValue(cursor, "district"),
+                            stringValue(cursor, "sub_admin_area"),
+                            stringValue(cursor, "subAdminArea"),
                             stringValue(cursor, "sub_locality"),
-                            stringValue(cursor, "county"),
-                            stringValue(cursor, "city_name"),
-                            stringValue(cursor, "placeName"),
-                            stringValue(cursor, "locality")
+                            stringValue(cursor, "subLocality"),
+                            stringValue(cursor, "county")
                     );
                     if (!TextUtils.isEmpty(name)) {
                         return cleanLocationName(name);
@@ -693,12 +727,13 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         }
 
         LocationManager manager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
-        CountDownLatch latch = new CountDownLatch(1);
+        CountDownLatch latch = new CountDownLatch(2);
         final Location[] result = new Location[1];
         String[] providers = {LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER};
         for (String provider : providers) {
             try {
                 if (!manager.isProviderEnabled(provider)) {
+                    latch.countDown();
                     continue;
                 }
                 manager.getCurrentLocation(
@@ -706,18 +741,20 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                         null,
                         context.getMainExecutor(),
                         location -> {
-                            if (location != null && result[0] == null) {
+                            if (location != null && (result[0] == null
+                                    || location.getAccuracy() < result[0].getAccuracy())) {
                                 result[0] = location;
-                                latch.countDown();
                             }
+                            latch.countDown();
                         }
                 );
             } catch (SecurityException | IllegalArgumentException ignored) {
                 // Try the other provider, then use the last known fix.
+                latch.countDown();
             }
         }
         try {
-            latch.await(2500L, TimeUnit.MILLISECONDS);
+            latch.await(3000L, TimeUnit.MILLISECONDS);
         } catch (InterruptedException ignored) {
             Thread.currentThread().interrupt();
         }
@@ -726,7 +763,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
 
     private static String locationName(Context context, Location location) {
         String fallback = "Vị trí hiện tại";
-        if (!Geocoder.isPresent()) {
+        if (location == null || !Geocoder.isPresent()) {
             return fallback;
         }
         try {
@@ -736,13 +773,12 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 return fallback;
             }
             Address address = addresses.get(0);
-            String name = address.getSubLocality();
-            if (name == null || name.trim().isEmpty()) {
-                name = address.getLocality();
-            }
-            if (name == null || name.trim().isEmpty()) {
-                name = address.getSubAdminArea();
-            }
+            // Prefer the district/county over the province-level locality.
+            String name = firstNonEmpty(
+                    address.getSubAdminArea(),
+                    address.getSubLocality(),
+                    address.getLocality()
+            );
             return cleanLocationName(name == null ? fallback : name);
         } catch (Exception ignored) {
             return fallback;
@@ -833,8 +869,33 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         return R.drawable.weather_sun;
     }
 
-    private static int digitResource(char digit, boolean redOne) {
-        if (redOne && digit == '1') return R.drawable.digit_1_red;
+    private static int weekdayImageResource(int dayOfWeek) {
+        switch (dayOfWeek) {
+            case Calendar.SUNDAY: return R.drawable.weekday_1;
+            case Calendar.MONDAY: return R.drawable.weekday_2;
+            case Calendar.TUESDAY: return R.drawable.weekday_3;
+            case Calendar.WEDNESDAY: return R.drawable.weekday_4;
+            case Calendar.THURSDAY: return R.drawable.weekday_5;
+            case Calendar.FRIDAY: return R.drawable.weekday_6;
+            default: return R.drawable.weekday_7;
+        }
+    }
+
+    private static int digitResource(char digit, boolean red) {
+        if (red) {
+            switch (digit) {
+                case '0': return R.drawable.digit_0_red;
+                case '1': return R.drawable.digit_1_red;
+                case '2': return R.drawable.digit_2_red;
+                case '3': return R.drawable.digit_3_red;
+                case '4': return R.drawable.digit_4_red;
+                case '5': return R.drawable.digit_5_red;
+                case '6': return R.drawable.digit_6_red;
+                case '7': return R.drawable.digit_7_red;
+                case '8': return R.drawable.digit_8_red;
+                default: return R.drawable.digit_9_red;
+            }
+        }
         switch (digit) {
             case '0': return R.drawable.digit_0_white;
             case '1': return R.drawable.digit_1_white;
@@ -855,19 +916,11 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         long now = System.currentTimeMillis();
         long nextMinute = now - (now % MINUTE) + MINUTE;
         alarmManager.setInexactRepeating(AlarmManager.RTC, nextMinute, MINUTE, pendingIntent);
-        PendingIntent animationIntent = animationPendingIntent(context);
-        alarmManager.setInexactRepeating(
-                AlarmManager.RTC,
-                now + ANIMATION_TICK,
-                ANIMATION_TICK,
-                animationIntent
-        );
     }
 
     private static void cancelMinuteUpdates(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         alarmManager.cancel(minutePendingIntent(context));
-        alarmManager.cancel(animationPendingIntent(context));
     }
 
     private static PendingIntent minutePendingIntent(Context context) {
@@ -875,16 +928,6 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         return PendingIntent.getBroadcast(
                 context,
                 77,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-    }
-
-    private static PendingIntent animationPendingIntent(Context context) {
-        Intent intent = new Intent(context, VietnameseClockWidget.class).setAction(ACTION_ANIMATION);
-        return PendingIntent.getBroadcast(
-                context,
-                78,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );

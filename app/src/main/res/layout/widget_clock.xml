@@ -3,15 +3,225 @@
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
+    android:background="@drawable/widget_background"
+    android:gravity="top"
     android:orientation="vertical"
-    android:background="@android:color/transparent">
+    android:paddingStart="2dp"
+    android:paddingTop="1dp"
+    android:paddingEnd="2dp"
+    android:paddingBottom="1dp">
 
-    <ImageView
-        android:id="@+id/iv_clock_canvas"
+    <LinearLayout
+        android:id="@+id/hour_block"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:contentDescription="Đồng hồ Việt"
-        android:scaleType="fitXY"
-        android:src="@drawable/widget_preview" />
+        android:layout_height="78dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/iv_hour_tens"
+            android:layout_width="0dp"
+            android:layout_height="62dp"
+            android:layout_weight="1"
+            android:contentDescription=""
+            android:scaleType="fitXY"
+            android:src="@drawable/digit_0_white" />
+
+        <ImageView
+            android:id="@+id/iv_hour_ones"
+            android:layout_width="0dp"
+            android:layout_height="62dp"
+            android:layout_weight="1"
+            android:contentDescription=""
+            android:scaleType="fitXY"
+            android:src="@drawable/digit_0_red" />
+
+        <ImageView
+            android:id="@+id/iv_time_separator"
+            android:layout_width="12dp"
+            android:layout_height="34dp"
+            android:contentDescription=""
+            android:scaleType="fitCenter"
+            android:src="@drawable/time_separator" />
+
+        <ImageView
+            android:id="@+id/iv_minute_tens"
+            android:layout_width="0dp"
+            android:layout_height="62dp"
+            android:layout_weight="1"
+            android:contentDescription=""
+            android:scaleType="fitXY"
+            android:src="@drawable/digit_0_white" />
+
+        <ImageView
+            android:id="@+id/iv_minute_ones"
+            android:layout_width="0dp"
+            android:layout_height="62dp"
+            android:layout_weight="1"
+            android:contentDescription=""
+            android:scaleType="fitXY"
+            android:src="@drawable/digit_0_white" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/info_row"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="top"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/date_block"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1.1"
+            android:gravity="top"
+            android:orientation="vertical"
+            android:paddingStart="3dp"
+            android:paddingTop="1dp">
+
+            <ImageView
+                android:id="@+id/iv_weekday_image"
+                android:layout_width="145dp"
+                android:layout_height="26dp"
+                android:contentDescription=""
+                android:scaleType="fitXY"
+                android:src="@drawable/weekday_2" />
+
+            <TextView
+                android:id="@+id/tv_solar_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/montserrat_black"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="24/08/2026"
+                android:textColor="@color/widget_text"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_lunar_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/montserrat_black"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:text="Âm lịch: 12 tháng 7"
+                android:textColor="@color/widget_muted"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/weather_block"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="top"
+            android:orientation="vertical"
+            android:paddingStart="3dp">
+
+            <LinearLayout
+                android:id="@+id/weather_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/tv_low_temp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/montserrat_black"
+                            android:includeFontPadding="false"
+                            android:text="▼ 27°"
+                            android:textColor="@color/widget_blue"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/tv_high_temp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="5dp"
+                            android:fontFamily="@font/montserrat_black"
+                            android:includeFontPadding="false"
+                            android:text="▲ 33°"
+                            android:textColor="@color/widget_yellow"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/location_row"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="2dp">
+
+                        <ImageView
+                            android:id="@+id/iv_location"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:contentDescription=""
+                            android:src="@drawable/ic_location" />
+
+                        <TextView
+                            android:id="@+id/tv_location"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:ellipsize="end"
+                            android:fontFamily="@font/montserrat_black"
+                            android:includeFontPadding="false"
+                            android:maxLines="1"
+                            android:paddingStart="4dp"
+                            android:text="Gò Vấp"
+                            android:textColor="@color/widget_text"
+                            android:textSize="13sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/tv_condition"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/montserrat_black"
+                        android:includeFontPadding="false"
+                        android:maxLines="1"
+                        android:paddingTop="1dp"
+                        android:text="Mưa"
+                        android:textColor="@color/widget_muted"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/iv_weather_icon"
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:contentDescription=""
+                    android:padding="1dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/weather_sun" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
 </LinearLayout>
