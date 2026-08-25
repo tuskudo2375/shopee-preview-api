@@ -524,7 +524,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static String firstNonEmpty(String... values) {
         for (String value : values) {
             if (!TextUtils.isEmpty(value) && !"null".equalsIgnoreCase(value)
-                    && !"[]".equals(value) && !"0".equals(value)) {
+                    && !"[]".equals(value)) {
                 return value.trim();
             }
         }
