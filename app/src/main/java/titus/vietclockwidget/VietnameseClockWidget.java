@@ -208,17 +208,18 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 openApp,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
-        Intent refresh = new Intent(context, VietnameseClockWidget.class)
-                .setAction(ACTION_REFRESH)
-                .setData(Uri.parse("vietclock://refresh/" + appWidgetId));
-        PendingIntent refreshPendingIntent = PendingIntent.getBroadcast(
+        String locationForSearch = prefs.getString(KEY_CITY, "Vị trí hiện tại");
+        Intent weatherLink = new Intent(Intent.ACTION_VIEW)
+                .setData(Uri.parse("https://www.google.com/search?q=" + Uri.encode(
+                        "thời tiết hiện tại ở " + locationForSearch)));
+        PendingIntent weatherLinkPendingIntent = PendingIntent.getActivity(
                 context,
                 2000 + appWidgetId,
-                refresh,
+                weatherLink,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent);
-        views.setOnClickPendingIntent(R.id.weather_block, refreshPendingIntent);
+        views.setOnClickPendingIntent(R.id.weather_block, weatherLinkPendingIntent);
         manager.updateAppWidget(appWidgetId, views);
     }
 
