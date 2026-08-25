@@ -32,6 +32,11 @@
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
                 <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="com.oplus.weather.action.update_weather" />
+                <action android:name="com.oplus.weather.action.updatecomplete" />
+                <action android:name="com.oplus.weather.action.deal_location" />
+                <action android:name="com.oplus.weatherwidget.WEATHER_UPDATE" />
+                <action android:name="com.oppo.action.oppoWeather" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"

@@ -6,16 +6,16 @@
     android:background="@drawable/widget_background"
     android:gravity="top"
     android:orientation="horizontal"
-    android:paddingStart="8dp"
-    android:paddingTop="2dp"
-    android:paddingEnd="4dp"
-    android:paddingBottom="2dp">
+    android:paddingStart="4dp"
+    android:paddingTop="1dp"
+    android:paddingEnd="2dp"
+    android:paddingBottom="1dp">
 
     <LinearLayout
         android:id="@+id/date_block"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1.02"
+        android:layout_weight="1.08"
         android:gravity="top"
         android:orientation="vertical">
 
@@ -27,18 +27,18 @@
 
             <ImageView
                 android:id="@+id/iv_hour_tens"
-                android:layout_width="48dp"
-                android:layout_height="68dp"
+                android:layout_width="60dp"
+                android:layout_height="74dp"
                 android:contentDescription=""
-                android:scaleType="fitCenter"
+                android:scaleType="fitXY"
                 android:src="@drawable/digit_1_white" />
 
             <ImageView
                 android:id="@+id/iv_hour_ones"
-                android:layout_width="48dp"
-                android:layout_height="68dp"
+                android:layout_width="60dp"
+                android:layout_height="74dp"
                 android:contentDescription=""
-                android:scaleType="fitCenter"
+                android:scaleType="fitXY"
                 android:src="@drawable/digit_8_white" />
         </LinearLayout>
 
@@ -55,7 +55,7 @@
             android:shadowRadius="3"
             android:text="Thứ Hai"
             android:textColor="@color/widget_text"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
         <TextView
@@ -69,7 +69,7 @@
             android:shadowRadius="3"
             android:text="24/08/2026"
             android:textColor="@color/widget_muted"
-            android:textSize="9sp" />
+            android:textSize="10sp" />
 
         <TextView
             android:id="@+id/tv_lunar_date"
@@ -101,7 +101,7 @@
         android:id="@+id/weather_block"
         android:layout_width="0dp"
         android:layout_height="match_parent"
-        android:layout_weight="1.18"
+        android:layout_weight="1.12"
         android:gravity="top"
         android:orientation="vertical"
         android:paddingStart="4dp">
@@ -200,8 +200,8 @@
 
             <ImageView
                 android:id="@+id/iv_weather_icon"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
                 android:contentDescription=""
                 android:padding="2dp"
                 android:scaleType="centerInside"
@@ -219,18 +219,18 @@
 
             <ImageView
                 android:id="@+id/iv_minute_tens"
-                android:layout_width="48dp"
-                android:layout_height="68dp"
+                android:layout_width="60dp"
+                android:layout_height="74dp"
                 android:contentDescription=""
-                android:scaleType="fitCenter"
+                android:scaleType="fitXY"
                 android:src="@drawable/digit_3_white" />
 
             <ImageView
                 android:id="@+id/iv_minute_ones"
-                android:layout_width="48dp"
-                android:layout_height="68dp"
+                android:layout_width="60dp"
+                android:layout_height="74dp"
                 android:contentDescription=""
-                android:scaleType="fitCenter"
+                android:scaleType="fitXY"
                 android:src="@drawable/digit_2_white" />
         </LinearLayout>
     </LinearLayout>

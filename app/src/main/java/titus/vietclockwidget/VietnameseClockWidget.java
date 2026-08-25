@@ -6,15 +6,18 @@ import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
+import android.text.TextUtils;
 import android.widget.RemoteViews;
 
 import org.json.JSONArray;
@@ -29,6 +32,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -43,8 +48,25 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static final String KEY_TEMP = "temp";
     private static final String KEY_CONDITION = "condition";
     private static final String KEY_ICON = "icon";
+    private static final String KEY_ALERT = "alert";
     private static final String KEY_UPDATED = "updated";
     private static final long MINUTE = 60_000L;
+    private static final Pattern NUMBER_PATTERN = Pattern.compile("[-+]?\\d+(?:[.,]\\d+)?");
+    private static final String[] COLOROS_WEATHER_AUTHORITIES = {
+            "com.coloros.weather.service.provider.data",
+            "com.oplus.weather.service.provider.data",
+            "com.oplusos.weather.service.provider.data"
+    };
+    private static final String[] WEATHER_INFO_PATHS = {"oplus_weather_info", "weather_info"};
+    private static final String[] CITY_PATHS = {"attent_city", "resident_city"};
+    private static final String[] ALERT_PATHS = {"weather_warn", "weather_warning"};
+    private static final String[] WEATHER_UPDATE_ACTIONS = {
+            "com.oplus.weather.action.update_weather",
+            "com.oplus.weather.action.updatecomplete",
+            "com.oplus.weather.action.deal_location",
+            "com.oplus.weatherwidget.WEATHER_UPDATE",
+            "com.oppo.action.oppoWeather"
+    };
     private static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
 
     @Override
@@ -77,6 +99,11 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 || Intent.ACTION_TIME_CHANGED.equals(action)
                 || Intent.ACTION_TIMEZONE_CHANGED.equals(action)
                 || Intent.ACTION_DATE_CHANGED.equals(action)) {
+            updateAllCached(context);
+            refreshWeatherAsync(context, getWidgetIds(context));
+            return;
+        }
+        if (isSystemWeatherAction(action)) {
             updateAllCached(context);
             refreshWeatherAsync(context, getWidgetIds(context));
             return;
@@ -148,7 +175,10 @@ public class VietnameseClockWidget extends AppWidgetProvider {
             views.setTextViewText(R.id.tv_low_temp, "▼ " + prefs.getString(KEY_LOW, "—") + "°");
             views.setTextViewText(R.id.tv_high_temp, "▲ " + prefs.getString(KEY_HIGH, "—") + "°");
             views.setTextViewText(R.id.tv_location, prefs.getString(KEY_CITY, "Vị trí hiện tại"));
-            views.setTextViewText(R.id.tv_condition, prefs.getString(KEY_CONDITION, "Đang cập nhật"));
+            String alert = prefs.getString(KEY_ALERT, "");
+            String condition = prefs.getString(KEY_CONDITION, "Đang cập nhật");
+            views.setTextViewText(R.id.tv_condition,
+                    TextUtils.isEmpty(alert) ? condition : "⚠ " + alert);
             views.setImageViewResource(R.id.iv_weather_icon,
                     weatherIconResource(prefs.getString(KEY_ICON, "sun")));
         } else {
@@ -182,6 +212,15 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     }
 
     private static WeatherData fetchWeather(Context context) {
+        WeatherData systemWeather = fetchColorOsWeather(context);
+        if (systemWeather.ready) {
+            return systemWeather;
+        }
+
+        return fetchWeatherFromNetwork(context);
+    }
+
+    private static WeatherData fetchWeatherFromNetwork(Context context) {
         Location location = lastKnownLocation(context);
         if (location == null) {
             return WeatherData.unavailable();
@@ -230,6 +269,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                     rounded(temperature),
                     condition(code),
                     weatherIcon(code),
+                    "",
                     true
             );
         } catch (Exception ignored) {
@@ -253,8 +293,330 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         editor.putString(KEY_TEMP, weather.temperature);
         editor.putString(KEY_CONDITION, weather.condition);
         editor.putString(KEY_ICON, weather.icon);
+        editor.putString(KEY_ALERT, weather.alert);
         editor.putLong(KEY_UPDATED, System.currentTimeMillis());
         editor.apply();
+    }
+
+    /**
+     * Reads the same data source used by ColorOS Weather. The provider is
+     * intentionally tried before the network fallback so the widget follows
+     * the phone's selected location, language, icon data and warning feed.
+     */
+    private static WeatherData fetchColorOsWeather(Context context) {
+        ContentResolver resolver = context.getContentResolver();
+        for (String authority : COLOROS_WEATHER_AUTHORITIES) {
+            for (String path : WEATHER_INFO_PATHS) {
+                Cursor cursor = null;
+                try {
+                    cursor = resolver.query(
+                            Uri.parse("content://" + authority + "/" + path),
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+                    if (cursor == null) {
+                        continue;
+                    }
+
+                    WeatherRow row = firstWeatherRow(cursor);
+                    if (row == null || !row.ready) {
+                        continue;
+                    }
+
+                    String city = findSystemCity(resolver, authority, row.cityId);
+                    String alert = firstNonEmpty(row.alert, findSystemAlert(resolver, authority, row.cityId));
+                    return new WeatherData(
+                            TextUtils.isEmpty(city) ? "Vị trí hiện tại" : city,
+                            row.low,
+                            row.high,
+                            row.temperature,
+                            row.condition,
+                            row.icon,
+                            alert,
+                            true
+                    );
+                } catch (SecurityException | IllegalArgumentException ignored) {
+                    // Some ColorOS builds keep the provider private. Try the
+                    // other provider name/path, then use the normal fallback.
+                } finally {
+                    if (cursor != null) {
+                        cursor.close();
+                    }
+                }
+            }
+        }
+        return WeatherData.unavailable();
+    }
+
+    private static WeatherRow firstWeatherRow(Cursor cursor) {
+        WeatherRow candidate = null;
+        while (cursor.moveToNext()) {
+            long cityId = longValue(cursor, "city_id", -1L);
+            String temperature = temperatureValue(firstNonEmpty(
+                    stringValue(cursor, "current_temp"),
+                    stringValue(cursor, "real_feel_temp"),
+                    stringValue(cursor, "day_temp"),
+                    stringValue(cursor, "night_temp")
+            ));
+            String currentWeather = firstNonEmpty(
+                    stringValue(cursor, "current_weather"),
+                    stringValue(cursor, "day_weather"),
+                    stringValue(cursor, "night_weather")
+            );
+            String weatherCode = firstNonEmpty(
+                    stringValue(cursor, "weather_id"),
+                    stringValue(cursor, "day_weather_id")
+            );
+            String condition = systemCondition(currentWeather, weatherCode);
+            String icon = systemIcon(currentWeather, weatherCode);
+            String low = temperatureValue(firstNonEmpty(
+                    stringValue(cursor, "night_temp"),
+                    stringValue(cursor, "day_temp"),
+                    temperature
+            ));
+            String high = temperatureValue(firstNonEmpty(
+                    stringValue(cursor, "day_temp"),
+                    stringValue(cursor, "night_temp"),
+                    temperature
+            ));
+            String alert = cleanAlert(firstNonEmpty(
+                    stringValue(cursor, "warn_weather"),
+                    stringValue(cursor, "detail_warn_weather")
+            ));
+            boolean current = intValue(cursor, "current", 0) == 1
+                    || intValue(cursor, "location", 0) == 1;
+            WeatherRow row = new WeatherRow(
+                    cityId,
+                    low,
+                    high,
+                    temperature,
+                    condition,
+                    icon,
+                    alert,
+                    !TextUtils.isEmpty(temperature) || !TextUtils.isEmpty(currentWeather)
+            );
+            if (current) {
+                return row;
+            }
+            if (candidate == null && row.ready) {
+                candidate = row;
+            }
+        }
+        return candidate;
+    }
+
+    private static String findSystemCity(ContentResolver resolver, String authority, long cityId) {
+        for (String path : CITY_PATHS) {
+            Cursor cursor = null;
+            try {
+                cursor = resolver.query(
+                        Uri.parse("content://" + authority + "/" + path),
+                        null,
+                        null,
+                        null,
+                        null
+                );
+                if (cursor == null) {
+                    continue;
+                }
+                String fallback = "";
+                while (cursor.moveToNext()) {
+                    String name = firstNonEmpty(
+                            stringValue(cursor, "city_name"),
+                            stringValue(cursor, "placeName"),
+                            stringValue(cursor, "full_address")
+                    );
+                    if (TextUtils.isEmpty(name)) {
+                        continue;
+                    }
+                    if (TextUtils.isEmpty(fallback)) {
+                        fallback = name;
+                    }
+                    long rowCityId = longValue(cursor, "city_id", -1L);
+                    boolean current = intValue(cursor, "current", 0) == 1
+                            || intValue(cursor, "location", 0) == 1;
+                    if ((cityId >= 0 && rowCityId == cityId) || current) {
+                        return cleanLocationName(name);
+                    }
+                }
+                if (!TextUtils.isEmpty(fallback)) {
+                    return cleanLocationName(fallback);
+                }
+            } catch (SecurityException | IllegalArgumentException ignored) {
+                // Try the next provider alias/path.
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String findSystemAlert(ContentResolver resolver, String authority, long cityId) {
+        for (String path : ALERT_PATHS) {
+            Cursor cursor = null;
+            try {
+                cursor = resolver.query(
+                        Uri.parse("content://" + authority + "/" + path),
+                        null,
+                        null,
+                        null,
+                        null
+                );
+                if (cursor == null) {
+                    continue;
+                }
+                while (cursor.moveToNext()) {
+                    long rowCityId = longValue(cursor, "city_id", longValue(cursor, "attent_city_id", -1L));
+                    if (cityId >= 0 && rowCityId >= 0 && rowCityId != cityId) {
+                        continue;
+                    }
+                    String alert = cleanAlert(firstNonEmpty(
+                            stringValue(cursor, "warn_title"),
+                            stringValue(cursor, "warn_content"),
+                            stringValue(cursor, "warn_weather"),
+                            stringValue(cursor, "detail_warn_weather"),
+                            stringValue(cursor, "content"),
+                            stringValue(cursor, "title")
+                    ));
+                    if (!TextUtils.isEmpty(alert)) {
+                        return alert;
+                    }
+                }
+            } catch (SecurityException | IllegalArgumentException ignored) {
+                // The warning table is optional on some ColorOS releases.
+            } finally {
+                if (cursor != null) {
+                    cursor.close();
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String stringValue(Cursor cursor, String column) {
+        int index = cursor.getColumnIndex(column);
+        if (index < 0 || cursor.isNull(index)) {
+            return "";
+        }
+        return cursor.getString(index);
+    }
+
+    private static long longValue(Cursor cursor, String column, long fallback) {
+        String value = stringValue(cursor, column);
+        if (TextUtils.isEmpty(value)) {
+            return fallback;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static int intValue(Cursor cursor, String column, int fallback) {
+        return (int) longValue(cursor, column, fallback);
+    }
+
+    private static String firstNonEmpty(String... values) {
+        for (String value : values) {
+            if (!TextUtils.isEmpty(value) && !"null".equalsIgnoreCase(value)
+                    && !"[]".equals(value) && !"0".equals(value)) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private static String temperatureValue(String value) {
+        if (TextUtils.isEmpty(value)) {
+            return "";
+        }
+        Matcher matcher = NUMBER_PATTERN.matcher(value.replace(',', '.'));
+        if (!matcher.find()) {
+            return "";
+        }
+        try {
+            return String.valueOf(Math.round(Double.parseDouble(matcher.group())));
+        } catch (NumberFormatException ignored) {
+            return "";
+        }
+    }
+
+    private static String systemCondition(String description, String code) {
+        String value = description == null ? "" : description.trim();
+        String lower = value.toLowerCase(Locale.ROOT);
+        if (lower.contains("storm") || lower.contains("thunder") || lower.contains("dông")
+                || lower.contains("giông")) {
+            return "Dông";
+        }
+        if (lower.contains("rain") || lower.contains("mưa") || lower.contains("drizzle")) {
+            return "Mưa";
+        }
+        if (lower.contains("fog") || lower.contains("sương")) {
+            return "Sương mù";
+        }
+        if (lower.contains("cloud") || lower.contains("mây")) {
+            return "Ít mây";
+        }
+        if (lower.contains("clear") || lower.contains("sun") || lower.contains("quang")) {
+            return "Trời quang";
+        }
+        int weatherCode = parseInt(code, -1);
+        return weatherCode >= 0 ? condition(weatherCode) :
+                (TextUtils.isEmpty(value) ? "Đang cập nhật" : value);
+    }
+
+    private static String systemIcon(String description, String code) {
+        String lower = description == null ? "" : description.toLowerCase(Locale.ROOT);
+        if (lower.contains("storm") || lower.contains("thunder") || lower.contains("dông")
+                || lower.contains("giông")) {
+            return "storm";
+        }
+        if (lower.contains("rain") || lower.contains("mưa") || lower.contains("drizzle")) {
+            return "rain";
+        }
+        if (lower.contains("cloud") || lower.contains("mây") || lower.contains("fog")
+                || lower.contains("sương")) {
+            return "cloud";
+        }
+        int weatherCode = parseInt(code, -1);
+        return weatherCode >= 0 ? weatherIcon(weatherCode) : "sun";
+    }
+
+    private static int parseInt(String value, int fallback) {
+        try {
+            return Integer.parseInt(value);
+        } catch (Exception ignored) {
+            return fallback;
+        }
+    }
+
+    private static String cleanAlert(String value) {
+        if (TextUtils.isEmpty(value) || "0".equals(value) || "[]".equals(value)
+                || "{}".equals(value)) {
+            return "";
+        }
+        String cleaned = value.replaceAll("\\s+", " ").trim();
+        if (cleaned.length() > 32) {
+            cleaned = cleaned.substring(0, 31).trim() + "…";
+        }
+        return cleaned;
+    }
+
+    private static boolean isSystemWeatherAction(String action) {
+        if (action == null) {
+            return false;
+        }
+        for (String weatherAction : WEATHER_UPDATE_ACTIONS) {
+            if (weatherAction.equals(action)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Location lastKnownLocation(Context context) {
@@ -421,21 +783,55 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         final String temperature;
         final String condition;
         final String icon;
+        final String alert;
         final boolean ready;
 
         WeatherData(String city, String low, String high, String temperature,
-                    String condition, String icon, boolean ready) {
+                    String condition, String icon, String alert, boolean ready) {
             this.city = city;
             this.low = low;
             this.high = high;
             this.temperature = temperature;
             this.condition = condition;
             this.icon = icon;
+            this.alert = alert;
             this.ready = ready;
         }
 
         static WeatherData unavailable() {
-            return new WeatherData("Vị trí hiện tại", "—", "—", "—", "Chưa có dữ liệu", "⟳", false);
+            return new WeatherData(
+                    "Vị trí hiện tại",
+                    "—",
+                    "—",
+                    "—",
+                    "Chưa có dữ liệu",
+                    "sun",
+                    "",
+                    false
+            );
+        }
+    }
+
+    private static final class WeatherRow {
+        final long cityId;
+        final String low;
+        final String high;
+        final String temperature;
+        final String condition;
+        final String icon;
+        final String alert;
+        final boolean ready;
+
+        WeatherRow(long cityId, String low, String high, String temperature,
+                   String condition, String icon, String alert, boolean ready) {
+            this.cityId = cityId;
+            this.low = TextUtils.isEmpty(low) ? "—" : low;
+            this.high = TextUtils.isEmpty(high) ? "—" : high;
+            this.temperature = TextUtils.isEmpty(temperature) ? "—" : temperature;
+            this.condition = TextUtils.isEmpty(condition) ? "Đang cập nhật" : condition;
+            this.icon = TextUtils.isEmpty(icon) ? "sun" : icon;
+            this.alert = alert;
+            this.ready = ready;
         }
     }
 }
