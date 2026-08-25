@@ -21,8 +21,12 @@ import java.util.Map;
  * coordinates mirror manifest.xml's 1080px canvas.
  */
 final class ClockCanvasRenderer {
-    private static final int WIDTH = 1080;
-    private static final int HEIGHT = 540;
+    // Keep the source coordinate system at 1080x540, but send a 540x270
+    // bitmap through RemoteViews so ColorOS does not reject a large Binder
+    // transaction while loading the widget.
+    private static final int WIDTH = 540;
+    private static final int HEIGHT = 270;
+    private static final float SCALE = 0.5f;
     private static final Map<Integer, Bitmap> CACHE = new HashMap<>();
     private static final String[] WEEKDAY = {
             "", "Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"
@@ -35,6 +39,7 @@ final class ClockCanvasRenderer {
                          String condition, String icon, String alert, boolean ready) {
         Bitmap bitmap = Bitmap.createBitmap(WIDTH, HEIGHT, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
+        canvas.scale(SCALE, SCALE);
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         paint.setDither(true);
 

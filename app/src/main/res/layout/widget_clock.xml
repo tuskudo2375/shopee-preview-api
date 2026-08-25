@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
     android:background="@android:color/transparent">
 
     <ImageView
@@ -10,14 +12,6 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:contentDescription="Đồng hồ Việt"
-        android:scaleType="fitXY" />
-
-    <View
-        android:id="@+id/weather_block"
-        android:layout_width="540px"
-        android:layout_height="match_parent"
-        android:layout_gravity="end"
-        android:background="@android:color/transparent"
-        android:clickable="true"
-        android:focusable="true" />
-</FrameLayout>
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_preview" />
+</LinearLayout>

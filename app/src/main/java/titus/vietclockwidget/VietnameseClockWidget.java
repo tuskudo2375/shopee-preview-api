@@ -189,7 +189,6 @@ public class VietnameseClockWidget extends AppWidgetProvider {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
         views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent);
-        views.setOnClickPendingIntent(R.id.weather_block, refreshPendingIntent);
         manager.updateAppWidget(appWidgetId, views);
     }
 
