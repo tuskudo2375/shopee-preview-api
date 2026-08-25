@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class VietnameseClockWidget extends AppWidgetProvider {
     static final String ACTION_REFRESH = "titus.vietclockwidget.ACTION_REFRESH";
     static final String ACTION_MINUTE = "titus.vietclockwidget.ACTION_MINUTE";
+    static final String ACTION_ANIMATION = "titus.vietclockwidget.ACTION_ANIMATION";
     private static final String PREFS = "widget_weather";
     private static final String KEY_READY = "ready";
     private static final String KEY_CITY = "city";
@@ -54,6 +55,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static final String KEY_ALERT = "alert";
     private static final String KEY_UPDATED = "updated";
     private static final long MINUTE = 60_000L;
+    private static final long ANIMATION_TICK = 10_000L;
     private static final Pattern NUMBER_PATTERN = Pattern.compile("[-+]?\\d+(?:[.,]\\d+)?");
     private static final String[] COLOROS_WEATHER_AUTHORITIES = {
             "com.coloros.weather.service.provider.data",
@@ -98,7 +100,7 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? null : intent.getAction();
-        if (ACTION_MINUTE.equals(action)) {
+        if (ACTION_MINUTE.equals(action) || ACTION_ANIMATION.equals(action)) {
             updateAllCached(context);
             return;
         }
@@ -158,43 +160,16 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static void updateView(Context context, AppWidgetManager manager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_clock);
         Calendar now = Calendar.getInstance();
-        String hour = twoDigits(now.get(Calendar.HOUR_OF_DAY));
-        String minute = twoDigits(now.get(Calendar.MINUTE));
-
-        views.setImageViewResource(R.id.iv_hour_tens, digitResource(hour.charAt(0), true));
-        views.setImageViewResource(R.id.iv_hour_ones, digitResource(hour.charAt(1), true));
-        views.setImageViewResource(R.id.iv_minute_tens, digitResource(minute.charAt(0), false));
-        views.setImageViewResource(R.id.iv_minute_ones, digitResource(minute.charAt(1), false));
-        views.setTextViewText(R.id.tv_weekday, weekday(now.get(Calendar.DAY_OF_WEEK)));
-        views.setTextViewText(R.id.tv_solar_date, String.format(
-                Locale.US,
-                "%02d/%02d/%04d",
-                now.get(Calendar.DAY_OF_MONTH),
-                now.get(Calendar.MONTH) + 1,
-                now.get(Calendar.YEAR)
-        ));
-        views.setTextViewText(R.id.tv_lunar_date, LunarCalendar.shortLabel(now));
-
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         boolean ready = prefs.getBoolean(KEY_READY, false);
-        views.setImageViewResource(R.id.iv_location, R.drawable.ic_location);
-        if (ready) {
-            views.setTextViewText(R.id.tv_low_temp, "▼ " + prefs.getString(KEY_LOW, "—") + "°");
-            views.setTextViewText(R.id.tv_high_temp, "▲ " + prefs.getString(KEY_HIGH, "—") + "°");
-            views.setTextViewText(R.id.tv_location, prefs.getString(KEY_CITY, "Vị trí hiện tại"));
-            String alert = prefs.getString(KEY_ALERT, "");
-            String condition = prefs.getString(KEY_CONDITION, "Đang cập nhật");
-            views.setTextViewText(R.id.tv_condition,
-                    TextUtils.isEmpty(alert) ? condition : "⚠ " + alert);
-            views.setImageViewResource(R.id.iv_weather_icon,
-                    weatherIconResource(prefs.getString(KEY_ICON, "sun")));
-        } else {
-            views.setTextViewText(R.id.tv_low_temp, "▼ —°");
-            views.setTextViewText(R.id.tv_high_temp, "▲ —°");
-            views.setTextViewText(R.id.tv_location, "Bật vị trí");
-            views.setTextViewText(R.id.tv_condition, "Bật vị trí để cập nhật");
-            views.setImageViewResource(R.id.iv_weather_icon, R.drawable.weather_sun);
-        }
+        String city = prefs.getString(KEY_CITY, "Vị trí hiện tại");
+        String temperature = prefs.getString(KEY_TEMP, "");
+        String condition = prefs.getString(KEY_CONDITION, "Đang cập nhật");
+        String icon = prefs.getString(KEY_ICON, "sun");
+        String alert = prefs.getString(KEY_ALERT, "");
+        views.setImageViewBitmap(R.id.iv_clock_canvas,
+                ClockCanvasRenderer.render(context, now, city, temperature,
+                        condition, icon, alert, ready));
 
         Intent openApp = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -221,17 +196,14 @@ public class VietnameseClockWidget extends AppWidgetProvider {
     private static WeatherData fetchWeather(Context context) {
         Location location = preciseLocation(context);
         WeatherData systemWeather = fetchColorOsWeather(context, location);
-        WeatherData preciseWeather = fetchWeatherFromNetwork(context, location);
-
-        // ColorOS remains the source for its warning feed, while the coordinate
-        // forecast prevents a province-wide city result from hiding the district.
-        if (preciseWeather.ready) {
-            if (systemWeather.ready && !TextUtils.isEmpty(systemWeather.alert)) {
-                return withAlert(preciseWeather, systemWeather.alert);
-            }
-            return preciseWeather;
+        // The ColorOS provider is the source of truth: it follows the phone's
+        // selected location, district-level weather and system warnings.
+        if (systemWeather.ready) {
+            return systemWeather;
         }
-        return systemWeather.ready ? systemWeather : WeatherData.unavailable();
+        // Keep a coordinate fallback only for devices that deny access to the
+        // private ColorOS provider; it is never preferred over system data.
+        return fetchWeatherFromNetwork(context, location);
     }
 
     private static WeatherData fetchWeatherFromNetwork(Context context, Location location) {
@@ -884,11 +856,19 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         long now = System.currentTimeMillis();
         long nextMinute = now - (now % MINUTE) + MINUTE;
         alarmManager.setInexactRepeating(AlarmManager.RTC, nextMinute, MINUTE, pendingIntent);
+        PendingIntent animationIntent = animationPendingIntent(context);
+        alarmManager.setInexactRepeating(
+                AlarmManager.RTC,
+                now + ANIMATION_TICK,
+                ANIMATION_TICK,
+                animationIntent
+        );
     }
 
     private static void cancelMinuteUpdates(Context context) {
         AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         alarmManager.cancel(minutePendingIntent(context));
+        alarmManager.cancel(animationPendingIntent(context));
     }
 
     private static PendingIntent minutePendingIntent(Context context) {
@@ -896,6 +876,16 @@ public class VietnameseClockWidget extends AppWidgetProvider {
         return PendingIntent.getBroadcast(
                 context,
                 77,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+    }
+
+    private static PendingIntent animationPendingIntent(Context context) {
+        Intent intent = new Intent(context, VietnameseClockWidget.class).setAction(ACTION_ANIMATION);
+        return PendingIntent.getBroadcast(
+                context,
+                78,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
