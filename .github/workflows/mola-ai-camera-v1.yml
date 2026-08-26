@@ -38,9 +38,12 @@ jobs:
           s=s.replace('private final Activity activity;', 'private Activity activity;')
           s=s.replace('private final Listener listener;', 'private Listener listener;')
           open(p,'w',encoding='utf-8').write(s)
+
           p='mola-ai-camera/app/src/main/java/titus/molaai/MainActivity.java'
           s=open(p, encoding='utf-8').read()
           s=s.replace('import android.widget.TextureView;', 'import android.view.TextureView;')
+          s=s.replace('gemini = new GeminiClient();\n        immersive();\n        buildUi();', 'gemini = new GeminiClient();\n        buildUi();\n        immersive();')
+          s=s.replace('WindowInsetsController c = getWindow().getInsetsController();', 'WindowInsetsController c = getWindow().getDecorView().getWindowInsetsController();')
           open(p,'w',encoding='utf-8').write(s)
           PY
 
@@ -51,6 +54,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MolaAI-Camera-V1
+          name: MolaAI-Camera-V1.1
           path: mola-ai-camera/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
