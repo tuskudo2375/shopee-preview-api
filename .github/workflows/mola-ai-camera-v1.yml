@@ -32,9 +32,15 @@ jobs:
           cat mola-ai-chunks/chunk* | base64 -d > /tmp/mola-ai-project.zip
           unzip -q /tmp/mola-ai-project.zip -d mola-ai-camera
 
-          # Camera engine V1.2: use the same CameraX logical-camera/SAT path that
-          # previously worked on PLG110 instead of pinning physical outputs.
+          # V1.2: return to CameraX logical rear camera + ColorOS SAT.
+          # Do not manually pin OPPO physical outputs; zoom ratio lets HAL select UW/main/tele.
           cp mola-ai-patches/CameraController.java mola-ai-camera/app/src/main/java/titus/molaai/CameraController.java
+
+          cat > mola-ai-camera/gradle.properties <<'EOF'
+          android.useAndroidX=true
+          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
 
           python3 - <<'PY'
           p='mola-ai-camera/app/src/main/java/titus/molaai/MainActivity.java'
