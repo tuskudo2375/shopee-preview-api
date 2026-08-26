@@ -31,19 +31,29 @@ jobs:
           mkdir -p mola-ai-camera
           cat mola-ai-chunks/chunk* | base64 -d > /tmp/mola-ai-project.zip
           unzip -q /tmp/mola-ai-project.zip -d mola-ai-camera
-          python3 - <<'PY'
-          p='mola-ai-camera/app/src/main/java/titus/molaai/CameraController.java'
-          s=open(p, encoding='utf-8').read()
-          s=s.replace('activity.getDisplay().getRotation()', 'activity.getWindowManager().getDefaultDisplay().getRotation()')
-          s=s.replace('private final Activity activity;', 'private Activity activity;')
-          s=s.replace('private final Listener listener;', 'private Listener listener;')
-          open(p,'w',encoding='utf-8').write(s)
 
+          # Camera engine V1.2: use the same CameraX logical-camera/SAT path that
+          # previously worked on PLG110 instead of pinning physical outputs.
+          cp mola-ai-patches/CameraController.java mola-ai-camera/app/src/main/java/titus/molaai/CameraController.java
+
+          python3 - <<'PY'
           p='mola-ai-camera/app/src/main/java/titus/molaai/MainActivity.java'
           s=open(p, encoding='utf-8').read()
           s=s.replace('import android.widget.TextureView;', 'import android.view.TextureView;')
+          s=s.replace('import android.view.TextureView;', 'import androidx.camera.view.PreviewView;\nimport androidx.activity.ComponentActivity;')
+          s=s.replace('public final class MainActivity extends Activity implements CameraController.Listener {', 'public final class MainActivity extends ComponentActivity implements CameraController.Listener {')
+          s=s.replace('private TextureView texture;', 'private PreviewView texture;')
+          s=s.replace('texture = new TextureView(this);\n        texture.setOpaque(false);', 'texture = new PreviewView(this);\n        texture.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);\n        texture.setScaleType(PreviewView.ScaleType.FILL_CENTER);')
+          s=s.replace('texture == null || !texture.isAvailable()', 'texture == null || texture.getWidth() <= 0 || texture.getHeight() <= 0')
+          s=s.replace('if(!texture.isAvailable())return;', 'if(texture.getWidth()<=0||texture.getHeight()<=0)return;')
           s=s.replace('gemini = new GeminiClient();\n        immersive();\n        buildUi();', 'gemini = new GeminiClient();\n        buildUi();\n        immersive();')
           s=s.replace('WindowInsetsController c = getWindow().getInsetsController();', 'WindowInsetsController c = getWindow().getDecorView().getWindowInsetsController();')
+          open(p,'w',encoding='utf-8').write(s)
+
+          p='mola-ai-camera/app/build.gradle'
+          s=open(p, encoding='utf-8').read()
+          if 'dependencies {' not in s:
+              s += '''\n\ndependencies {\n    implementation 'androidx.activity:activity:1.9.3'\n    implementation 'androidx.camera:camera-core:1.4.2'\n    implementation 'androidx.camera:camera-camera2:1.4.2'\n    implementation 'androidx.camera:camera-lifecycle:1.4.2'\n    implementation 'androidx.camera:camera-view:1.4.2'\n}\n'''
           open(p,'w',encoding='utf-8').write(s)
           PY
 
@@ -54,6 +64,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MolaAI-Camera-V1.1
+          name: MolaAI-Camera-V1.2
           path: mola-ai-camera/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
