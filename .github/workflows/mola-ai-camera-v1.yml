@@ -37,12 +37,8 @@ jobs:
           s=s.replace('activity.getDisplay().getRotation()', 'activity.getWindowManager().getDefaultDisplay().getRotation()')
           open(p,'w',encoding='utf-8').write(s)
           PY
-
-      - name: Ensure Android SDK 35
-        shell: bash
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=${ANDROID_HOME:-}"
+          ls -la "${ANDROID_HOME:-/usr/local/lib/android/sdk}" || true
 
       - name: Build debug APK
         working-directory: mola-ai-camera
