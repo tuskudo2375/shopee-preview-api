@@ -35,6 +35,8 @@ jobs:
           p='mola-ai-camera/app/src/main/java/titus/molaai/CameraController.java'
           s=open(p, encoding='utf-8').read()
           s=s.replace('activity.getDisplay().getRotation()', 'activity.getWindowManager().getDefaultDisplay().getRotation()')
+          s=s.replace('private final Activity activity;', 'private Activity activity;')
+          s=s.replace('private final Listener listener;', 'private Listener listener;')
           open(p,'w',encoding='utf-8').write(s)
           p='mola-ai-camera/app/src/main/java/titus/molaai/MainActivity.java'
           s=open(p, encoding='utf-8').read()
