@@ -32,8 +32,8 @@ jobs:
           cat mola-ai-chunks/chunk* | base64 -d > /tmp/mola-ai-project.zip
           unzip -q /tmp/mola-ai-project.zip -d mola-ai-camera
 
-          # V1.2: return to CameraX logical rear camera + ColorOS SAT.
-          # Do not manually pin OPPO physical outputs; zoom ratio lets HAL select UW/main/tele.
+          # V1.2: same proven path as AICompose on PLG110:
+          # one CameraX logical rear camera; ColorOS SAT selects UW/main/tele from zoom ratio.
           cp mola-ai-patches/CameraController.java mola-ai-camera/app/src/main/java/titus/molaai/CameraController.java
 
           cat > mola-ai-camera/gradle.properties <<'EOF'
@@ -52,8 +52,15 @@ jobs:
           s=s.replace('texture = new TextureView(this);\n        texture.setOpaque(false);', 'texture = new PreviewView(this);\n        texture.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);\n        texture.setScaleType(PreviewView.ScaleType.FILL_CENTER);')
           s=s.replace('texture == null || !texture.isAvailable()', 'texture == null || texture.getWidth() <= 0 || texture.getHeight() <= 0')
           s=s.replace('if(!texture.isAvailable())return;', 'if(texture.getWidth()<=0||texture.getHeight()<=0)return;')
+          s=s.replace('texture.getBitmap(w,h)', 'previewBitmap(w,h)')
+          s=s.replace('texture.getBitmap(240,Math.max(160,Math.round(240f*texture.getHeight()/Math.max(1,texture.getWidth()))))', 'previewBitmap(240,Math.max(160,Math.round(240f*texture.getHeight()/Math.max(1,texture.getWidth()))))')
           s=s.replace('gemini = new GeminiClient();\n        immersive();\n        buildUi();', 'gemini = new GeminiClient();\n        buildUi();\n        immersive();')
           s=s.replace('WindowInsetsController c = getWindow().getInsetsController();', 'WindowInsetsController c = getWindow().getDecorView().getWindowInsetsController();')
+          marker='    private Bitmap resize(Bitmap b,int max)'
+          helper='    private Bitmap previewBitmap(int w,int h){Bitmap src=texture==null?null:texture.getBitmap();if(src==null)return null;Bitmap out=Bitmap.createScaledBitmap(src,w,h,true);if(out!=src)src.recycle();return out;}\n'
+          if helper not in s:
+              s=s.replace(marker, helper+marker)
+          s=s.replace('Nút zoom được tạo từ metadata Camera2 thực tế. Với logical multi-camera, app thử pin đúng physicalCameraId; mục Tùy chỉnh cho xem ID HAL đang active.', 'Camera dùng logical multi-camera của ColorOS qua CameraX. Các mốc zoom để HAL/SAT tự chuyển đúng ultra-wide, camera chính và tele; mục Tùy chỉnh cho xem logical/physical IDs.')
           open(p,'w',encoding='utf-8').write(s)
 
           p='mola-ai-camera/app/build.gradle'
