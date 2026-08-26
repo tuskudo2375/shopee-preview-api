@@ -38,6 +38,7 @@ jobs:
 
           # V1.3 subject selection is entirely local: face-first + saliency fallback + tracker.
           cp mola-ai-patches/LocalSubjectAnalyzer.java mola-ai-camera/app/src/main/java/titus/molaai/LocalSubjectAnalyzer.java
+          sed -i 's/new FaceDetector(rgb565.getWidth(), rgb565.getHeight(), faces)/new FaceDetector(rgb565.getWidth(), rgb565.getHeight(), faces.length)/' mola-ai-camera/app/src/main/java/titus/molaai/LocalSubjectAnalyzer.java
           python3 mola-ai-patches/apply_v13.py
 
           cat > mola-ai-camera/gradle.properties <<'EOF'
