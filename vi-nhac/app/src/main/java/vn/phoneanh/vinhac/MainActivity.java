@@ -64,6 +64,7 @@ public class MainActivity extends Activity {
     private String statsStartDate, statsEndDate;
     private static final int EXPORT_REQUEST = 9001;
     private static final int IMPORT_REQUEST = 9002;
+    private static final int[] PIE_COLORS = {0xffd92d20, 0xff2e8b57, 0xfff39c12, 0xff3f7cac, 0xff8e44ad, 0xff16a085, 0xffd35400, 0xff2c3e50, 0xffc0392b, 0xff27ae60, 0xff2980b9, 0xff7f8c7d};
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -250,7 +251,7 @@ public class MainActivity extends Activity {
             LinearLayout legend = new LinearLayout(this);
             legend.setGravity(Gravity.CENTER_VERTICAL);
             View dot = new View(this);
-            dot.setBackgroundColor(PieChartView.COLORS[i % PieChartView.COLORS.length]);
+            dot.setBackgroundColor(PIE_COLORS[i % PIE_COLORS.length]);
             legend.addView(dot, new LinearLayout.LayoutParams(dp(12), dp(12)));
             long amount = values.get(i);
             TextView label = text("  " + labels.get(i), 14, INK, true);
@@ -439,7 +440,7 @@ public class MainActivity extends Activity {
     private void editOptionDialog(boolean sourceList,String oldValue,Runnable refresh){EditText input=new EditText(this);input.setSingleLine(true);input.setText(oldValue);input.setSelectAllOnFocus(true);new AlertDialog.Builder(this).setTitle("Đổi tên").setView(input).setNegativeButton("HỦY",null).setPositiveButton("LƯU",(d,w)->{String value=input.getText().toString().trim();boolean ok=sourceList?store.renameSource(oldValue,value):store.renameCategory(oldValue,value);if(!ok)Toast.makeText(this,"Tên trống hoặc bị trùng",Toast.LENGTH_SHORT).show();else refresh.run();}).show();}
 
     private final class PieChartView extends View {
-        static final int[] COLORS = {0xffd92d20, 0xff2e8b57, 0xfff39c12, 0xff3f7cac, 0xff8e44ad, 0xff16a085, 0xffd35400, 0xff2c3e50, 0xffc0392b, 0xff27ae60, 0xff2980b9, 0xff7f8c8d};
+        final int[] COLORS = PIE_COLORS;
         private final List<String> labels;
         private final List<Long> values;
         private final long total;
