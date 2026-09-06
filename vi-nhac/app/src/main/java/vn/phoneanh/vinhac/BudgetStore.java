@@ -111,6 +111,28 @@ final class BudgetStore {
         return updateText(target, "note", note);
     }
 
+    boolean deleteExpense(JSONObject target) {
+        try {
+            JSONArray all = items();
+            for (int i = 0; i < all.length(); i++) {
+                JSONObject item = all.getJSONObject(i);
+                // Match the complete row: edited timestamps may be shared by two expenses.
+                boolean matches = item.length() == target.length();
+                java.util.Iterator<String> keys = target.keys();
+                while (matches && keys.hasNext()) {
+                    String key = keys.next();
+                    matches = item.has(key) && item.get(key).equals(target.get(key));
+                }
+                if (!matches) continue;
+                all.remove(i);
+                // Retain notification_event_ids so a repost does not recreate this expense.
+                return prefs.edit().putString(HISTORY_KEY, all.toString()).commit();
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
     private boolean updateText(JSONObject target, String field, String value) {
         try {
             JSONArray all = items();

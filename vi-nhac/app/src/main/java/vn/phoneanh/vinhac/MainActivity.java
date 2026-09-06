@@ -350,8 +350,24 @@ public class MainActivity extends Activity {
         TextView categoryChip=chip(o.optString("category","Chưa gắn thẻ"),0xffeaf7ef,GREEN,v->editExpenseCategory(o)); details.addView(detailRow("Danh mục",categoryChip));
         TextView sourceChip=chip(o.optString("source","Tiền Mặt"),0xfff1f1f1,MUTED,v->editExpenseSource(o)); details.addView(detailRow("Nguồn chi",sourceChip));
         String stamp=o.optLong("time",0)>0?new SimpleDateFormat("HH:mm • dd/MM/yyyy",new Locale("vi","VN")).format(new java.util.Date(o.optLong("time"))):o.optString("date",""); TextView dateValue=text(stamp,14,INK,true); LinearLayout dateRow=detailRow("Ngày & giờ",dateValue); details.addView(dateRow); box.addView(details,top(12));
-        AlertDialog detail=new AlertDialog.Builder(this).setTitle("Chi tiết giao dịch").setView(box).setNegativeButton("Đóng",null).create();
+        AlertDialog detail=new AlertDialog.Builder(this).setTitle("Chi tiết giao dịch").setView(box).setNegativeButton("Đóng",null).setNeutralButton("Xóa giao dịch",null).create();
         noteRow.setOnClickListener(v->editExpenseNote(o,detail,noteValue)); categoryChip.setOnClickListener(v->editExpenseCategory(o,detail)); sourceChip.setOnClickListener(v->editExpenseSource(o,detail)); dateRow.setOnClickListener(v->editExpenseDateTime(o,detail,dateValue)); detail.show();
+        detail.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(RED);
+        detail.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v ->
+            new AlertDialog.Builder(this).setTitle("Xóa giao dịch này?")
+                .setMessage(o.optString("note", "") + "\n" + Format.money(o.optLong("amount", 0))
+                    + "\n" + o.optString("date", "") + "\nChỉ xóa khoản chi này khỏi lịch sử.")
+                .setNegativeButton("Hủy", null)
+                .setPositiveButton("Xóa", (confirmation, which) -> {
+                    if (store.deleteExpense(o)) {
+                        detail.dismiss();
+                        draw();
+                        NotificationHelper.refresh(this);
+                        Toast.makeText(this, "Đã xóa giao dịch", Toast.LENGTH_SHORT).show();
+                    } else {
+                        Toast.makeText(this, "Chưa xóa được. Mở lại giao dịch và thử lại.", Toast.LENGTH_LONG).show();
+                    }
+                }).show());
     }
     private LinearLayout detailRow(String label,View value){LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(0,dp(7),0,dp(7));row.addView(text(label,14,MUTED,false),new LinearLayout.LayoutParams(0,-2,1));row.addView(value,new LinearLayout.LayoutParams(-2,-2));return row;}
     private void editExpenseCategory(JSONObject o){editExpenseCategory(o,null);}
