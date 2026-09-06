@@ -10,15 +10,20 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -33,14 +38,19 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.text.SimpleDateFormat;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 public class MainActivity extends Activity {
@@ -50,6 +60,10 @@ public class MainActivity extends Activity {
     private int tab = 0;
     private String filterStartDate, filterEndDate, filterCategory;
     private final Set<String> filterSources = new LinkedHashSet<>();
+    private int statsRange = 2; // 0 = 7 ngày, 1 = 30 ngày, 2 = tháng, 3 = tùy chọn
+    private String statsStartDate, statsEndDate;
+    private static final int EXPORT_REQUEST = 9001;
+    private static final int IMPORT_REQUEST = 9002;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -64,6 +78,35 @@ public class MainActivity extends Activity {
     }
 
     @Override protected void onResume() { super.onResume(); if (root != null) { draw(); root.postDelayed(this::maybePromptSpendingDays, 350); } }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        try {
+            if (requestCode == EXPORT_REQUEST) {
+                try (OutputStream output = getContentResolver().openOutputStream(uri)) {
+                    if (output == null) throw new IllegalStateException("Không mở được file");
+                    output.write(store.exportData().toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                Toast.makeText(this, "Đã xuất dữ liệu chi tiêu", Toast.LENGTH_SHORT).show();
+            } else if (requestCode == IMPORT_REQUEST) {
+                String json;
+                try (InputStream input = getContentResolver().openInputStream(uri); ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+                    if (input == null) throw new IllegalStateException("Không đọc được file");
+                    byte[] chunk = new byte[8192]; int read;
+                    while ((read = input.read(chunk)) != -1) buffer.write(chunk, 0, read);
+                    json = buffer.toString("UTF-8");
+                }
+                int count = store.importData(json);
+                NotificationHelper.refresh(this);
+                draw();
+                Toast.makeText(this, "Đã nhập bổ sung " + count + " giao dịch, không ghi đè dữ liệu hiện tại", Toast.LENGTH_LONG).show();
+            }
+        } catch (Exception error) {
+            Toast.makeText(this, "Không thể xử lý file dữ liệu", Toast.LENGTH_LONG).show();
+        }
+    }
 
     private void updatePalette() {
         SharedPreferences p = getSharedPreferences("settings", MODE_PRIVATE);
@@ -84,7 +127,7 @@ public class MainActivity extends Activity {
         FrameLayout.LayoutParams navParams = new FrameLayout.LayoutParams(-1,dp(64),Gravity.BOTTOM); navParams.leftMargin = dp(12); navParams.rightMargin = dp(12); navParams.bottomMargin = dp(8); frame.addView(bottomNav(), navParams);
         setContentView(frame);
         root.addView(header());
-        if (tab == 0) drawHome(scroll); else drawHistory();
+        if (tab == 0) drawHome(scroll); else if (tab == 1) drawHistory(); else drawStats();
     }
 
     private View header() {
@@ -129,6 +172,135 @@ public class MainActivity extends Activity {
         if(!found) root.addView(text("Chưa có khoản chi hôm nay.",15,MUTED,false),top(12));
     }
 
+    private void drawStats() {
+        root.addView(text("Thống kê chi tiêu", 22, INK, true), top(22));
+        root.addView(text("Biểu đồ phân bổ theo danh mục", 14, MUTED, false), top(4));
+
+        LinearLayout rangeRow = new LinearLayout(this);
+        rangeRow.setGravity(Gravity.CENTER_VERTICAL);
+        String[] names = {"7 NGÀY", "30 NGÀY", "THÁNG", "TÙY CHỌN"};
+        for (int i = 0; i < names.length; i++) {
+            final int selected = i;
+            Button button = new Button(this);
+            button.setText(names[i]);
+            button.setTextSize(11);
+            button.setTextColor(statsRange == i ? RED : MUTED);
+            button.setOnClickListener(v -> {
+                if (selected == 3) showStatsCustomStartPicker();
+                else { statsRange = selected; draw(); }
+            });
+            rangeRow.addView(button, new LinearLayout.LayoutParams(0, dp(48), 1));
+        }
+        root.addView(rangeRow, top(8));
+
+        LocalDate[] dates = statsDates();
+        if (dates == null) {
+            root.addView(text("Chọn ngày bắt đầu và ngày kết thúc để xem thống kê.", 15, MUTED, false), top(20));
+            return;
+        }
+
+        root.addView(text("Từ " + shortDate(dates[0]) + " đến " + shortDate(dates[1]), 14, MUTED, false), top(2));
+        LinkedHashMap<String, Long> totals = new LinkedHashMap<>();
+        for (String category : store.categories()) totals.put(category, 0L);
+        JSONArray items = store.items();
+        long total = 0;
+        for (int i = 0; i < items.length(); i++) {
+            try {
+                JSONObject item = items.getJSONObject(i);
+                LocalDate date = LocalDate.parse(item.optString("date"));
+                if (date.isBefore(dates[0]) || date.isAfter(dates[1])) continue;
+                String category = item.optString("category", "Chưa gắn thẻ");
+                long amount = item.optLong("amount", 0);
+                totals.put(category, totals.containsKey(category) ? totals.get(category) + amount : amount);
+                total += amount;
+            } catch (Exception ignored) {}
+        }
+
+        List<String> labels = new ArrayList<>();
+        List<Long> values = new ArrayList<>();
+        for (Map.Entry<String, Long> entry : totals.entrySet()) {
+            if (entry.getValue() > 0) { labels.add(entry.getKey()); values.add(entry.getValue()); }
+        }
+        if (total == 0) {
+            TextView empty = text("Chưa có giao dịch trong khoảng thời gian này.", 16, MUTED, false);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(dp(10), dp(42), dp(10), dp(42));
+            empty.setBackground(card(CARD, 0xffe5e5e8));
+            root.addView(empty, top(16));
+            return;
+        }
+
+        TextView selection = text("Chạm vào một phần biểu đồ để xem chi tiết", 14, MUTED, false);
+        selection.setGravity(Gravity.CENTER);
+        PieChartView chart = new PieChartView(this, labels, values, total);
+        chart.setMinimumHeight(dp(280));
+        chart.setBackground(card(CARD, 0xffe5e5e8));
+        chart.setCategoryListener((label, amount) -> selection.setText(label + " • " + Format.money(amount) + " • " + percent(amount, total)));
+        root.addView(chart, top(14));
+        root.addView(selection, top(8));
+
+        LinearLayout summary = new LinearLayout(this);
+        summary.setOrientation(LinearLayout.HORIZONTAL);
+        summary.setPadding(0, dp(14), 0, dp(6));
+        summary.addView(stat("TỔNG CHI", Format.money(total)), new LinearLayout.LayoutParams(0, -2, 1));
+        summary.addView(stat("SỐ KHOẢN", String.valueOf(values.size())), new LinearLayout.LayoutParams(0, -2, 1));
+        root.addView(summary);
+
+        for (int i = 0; i < labels.size(); i++) {
+            LinearLayout legend = new LinearLayout(this);
+            legend.setGravity(Gravity.CENTER_VERTICAL);
+            View dot = new View(this);
+            dot.setBackgroundColor(PieChartView.COLORS[i % PieChartView.COLORS.length]);
+            legend.addView(dot, new LinearLayout.LayoutParams(dp(12), dp(12)));
+            long amount = values.get(i);
+            TextView label = text("  " + labels.get(i), 14, INK, true);
+            legend.addView(label, new LinearLayout.LayoutParams(0, -2, 1));
+            legend.addView(text(Format.money(amount) + "  " + percent(amount, total), 14, MUTED, false));
+            root.addView(legend, top(10));
+        }
+    }
+
+    private LocalDate[] statsDates() {
+        LocalDate today = LocalDate.now();
+        if (statsRange == 0) return new LocalDate[]{today.minusDays(6), today};
+        if (statsRange == 1) return new LocalDate[]{today.minusDays(29), today};
+        if (statsRange == 2) return new LocalDate[]{today.withDayOfMonth(1), today};
+        if (statsStartDate == null || statsEndDate == null) return null;
+        return new LocalDate[]{LocalDate.parse(statsStartDate), LocalDate.parse(statsEndDate)};
+    }
+
+    private String shortDate(LocalDate date) { return date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.ROOT)); }
+    private String percent(long amount, long total) { return String.format(Locale.ROOT, "%.1f%%", total == 0 ? 0 : amount * 100d / total); }
+
+    private void showStatsCustomStartPicker() {
+        LocalDate today = LocalDate.now();
+        LocalDate selected = statsStartDate == null ? today.minusDays(6) : LocalDate.parse(statsStartDate);
+        DatePickerDialog dialog = new DatePickerDialog(this, (v, y, m, d) -> {
+            statsStartDate = String.format(Locale.ROOT, "%04d-%02d-%02d", y, m + 1, d);
+            statsEndDate = null;
+            showStatsCustomEndPicker();
+        }, selected.getYear(), selected.getMonthValue() - 1, selected.getDayOfMonth());
+        Calendar min = Calendar.getInstance(); min.add(Calendar.MONTH, -5); min.set(Calendar.DAY_OF_MONTH, 1);
+        dialog.getDatePicker().setMinDate(min.getTimeInMillis());
+        dialog.getDatePicker().setMaxDate(System.currentTimeMillis());
+        dialog.show();
+    }
+
+    private void showStatsCustomEndPicker() {
+        LocalDate start = LocalDate.parse(statsStartDate);
+        LocalDate today = LocalDate.now();
+        DatePickerDialog dialog = new DatePickerDialog(this, (v, y, m, d) -> {
+            String picked = String.format(Locale.ROOT, "%04d-%02d-%02d", y, m + 1, d);
+            if (LocalDate.parse(picked).isBefore(start)) { statsEndDate = statsStartDate; statsStartDate = picked; }
+            else statsEndDate = picked;
+            statsRange = 3;
+            draw();
+        }, start.getYear(), start.getMonthValue() - 1, start.getDayOfMonth());
+        dialog.getDatePicker().setMinDate(start.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli());
+        dialog.getDatePicker().setMaxDate(System.currentTimeMillis());
+        dialog.show();
+    }
+
     private void drawHistory() {
         root.addView(text("Chi tiêu trong 6 tháng", 22, INK, true), top(22));
         LinearLayout filters = new LinearLayout(this); filters.setGravity(Gravity.CENTER_VERTICAL);
@@ -148,7 +320,7 @@ public class MainActivity extends Activity {
 
     private TextView chip(String label,int fill,int color,View.OnClickListener listener){TextView v=text(label,12,color,true);v.setGravity(Gravity.CENTER);v.setPadding(dp(10),0,dp(10),0);v.setSingleLine(true);v.setBackground(card(fill,0x00ffffff));v.setOnClickListener(listener);return v;}
 
-    private View bottomNav(){LinearLayout nav=new LinearLayout(this);nav.setGravity(Gravity.CENTER);nav.setPadding(dp(6),dp(4),dp(6),dp(4));nav.setBackground(card(CARD,0xffdddddf));nav.setElevation(dp(8));Button home=new Button(this);home.setText("⌂  HOME");home.setTextColor(tab==0?RED:MUTED);home.setOnClickListener(v->{tab=0;draw();});Button history=new Button(this);history.setText("▤  LỊCH SỬ");history.setTextColor(tab==1?RED:MUTED);history.setOnClickListener(v->{tab=1;draw();});nav.addView(home,new LinearLayout.LayoutParams(0,-1,1));nav.addView(history,new LinearLayout.LayoutParams(0,-1,1));return nav;}
+    private View bottomNav(){LinearLayout nav=new LinearLayout(this);nav.setGravity(Gravity.CENTER);nav.setPadding(dp(4),dp(4),dp(4),dp(4));nav.setBackground(card(CARD,0xffdddddf));nav.setElevation(dp(8));Button home=new Button(this);home.setText("⌂  HOME");home.setTextSize(11);home.setTextColor(tab==0?RED:MUTED);home.setOnClickListener(v->{tab=0;draw();});Button history=new Button(this);history.setText("▤  LỊCH SỬ");history.setTextSize(11);history.setTextColor(tab==1?RED:MUTED);history.setOnClickListener(v->{tab=1;draw();});Button stats=new Button(this);stats.setText("◔  THỐNG KÊ");stats.setTextSize(11);stats.setTextColor(tab==2?RED:MUTED);stats.setOnClickListener(v->{tab=2;draw();});nav.addView(home,new LinearLayout.LayoutParams(0,-1,1));nav.addView(history,new LinearLayout.LayoutParams(0,-1,1));nav.addView(stats,new LinearLayout.LayoutParams(0,-1,1));return nav;}
 
     private void showDateFilter(){if(filterStartDate!=null&&filterEndDate==null)showEndDatePicker();else showStartDatePicker();}
     private void showStartDatePicker(){Calendar today=Calendar.getInstance();LocalDate selected=filterStartDate==null?LocalDate.now():LocalDate.parse(filterStartDate);DatePickerDialog dialog=new DatePickerDialog(this,(v,y,m,d)->{filterStartDate=String.format(Locale.ROOT,"%04d-%02d-%02d",y,m+1,d);filterEndDate=null;showEndDatePicker();},selected.getYear(),selected.getMonthValue()-1,selected.getDayOfMonth());Calendar min=Calendar.getInstance();min.add(Calendar.MONTH,-5);min.set(Calendar.DAY_OF_MONTH,1);dialog.getDatePicker().setMinDate(min.getTimeInMillis());dialog.getDatePicker().setMaxDate(today.getTimeInMillis());dialog.show();}
@@ -189,10 +361,15 @@ public class MainActivity extends Activity {
         Button calendarButton=new Button(this);calendarButton.setText("LỊCH NGÀY CHI TIÊU / NGÀY OFF");box.addView(calendarButton,top(4));
         Button sourceButton=new Button(this);sourceButton.setText("QUẢN LÝ NGUỒN TIỀN");box.addView(sourceButton,top(2));
         Button categoryButton=new Button(this);categoryButton.setText("QUẢN LÝ DANH MỤC");box.addView(categoryButton,top(2));
+        box.addView(text("Sao lưu dữ liệu để đổi APK không sợ mất lịch sử",14,MUTED,true),top(14));
+        Button exportButton=new Button(this);exportButton.setText("XUẤT DỮ LIỆU RA FILE");box.addView(exportButton,top(3));
+        Button importButton=new Button(this);importButton.setText("NHẬP DỮ LIỆU TỪ FILE");box.addView(importButton,top(2));
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tùy chỉnh").setView(box).setNegativeButton("Hủy",null).setNeutralButton("XÓA API",(d,w)->{new SecretStore(this).setApiKey("");draw();}).setPositiveButton("LƯU",(d,w)->{String value=key.getText().toString().trim();if(!value.isEmpty())new SecretStore(this).setApiKey(value);int id=group.getCheckedRadioButtonId();RadioButton checked=group.findViewById(id);String theme=checked==null?"system":(checked.getText().toString().equals("Sáng")?"light":checked.getText().toString().equals("Tối")?"dark":"system");getSharedPreferences("settings",MODE_PRIVATE).edit().putString("theme",theme).apply();draw();}).create();
         calendarButton.setOnClickListener(v->{dialog.dismiss();spendingCalendarDialog(YearMonth.now());});
         sourceButton.setOnClickListener(v->{dialog.dismiss();optionManagerDialog(true);});
         categoryButton.setOnClickListener(v->{dialog.dismiss();optionManagerDialog(false);});
+        exportButton.setOnClickListener(v->{dialog.dismiss();Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.setType("application/json");intent.putExtra(Intent.EXTRA_TITLE,"tro-ly-chi-tieu-backup.json");startActivityForResult(intent,EXPORT_REQUEST);});
+        importButton.setOnClickListener(v->{dialog.dismiss();Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/json");startActivityForResult(intent,IMPORT_REQUEST);});
         dialog.show();
     }
 
@@ -260,6 +437,69 @@ public class MainActivity extends Activity {
     }
 
     private void editOptionDialog(boolean sourceList,String oldValue,Runnable refresh){EditText input=new EditText(this);input.setSingleLine(true);input.setText(oldValue);input.setSelectAllOnFocus(true);new AlertDialog.Builder(this).setTitle("Đổi tên").setView(input).setNegativeButton("HỦY",null).setPositiveButton("LƯU",(d,w)->{String value=input.getText().toString().trim();boolean ok=sourceList?store.renameSource(oldValue,value):store.renameCategory(oldValue,value);if(!ok)Toast.makeText(this,"Tên trống hoặc bị trùng",Toast.LENGTH_SHORT).show();else refresh.run();}).show();}
+
+    private final class PieChartView extends View {
+        static final int[] COLORS = {0xffd92d20, 0xff2e8b57, 0xfff39c12, 0xff3f7cac, 0xff8e44ad, 0xff16a085, 0xffd35400, 0xff2c3e50, 0xffc0392b, 0xff27ae60, 0xff2980b9, 0xff7f8c8d};
+        private final List<String> labels;
+        private final List<Long> values;
+        private final long total;
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private CategoryListener listener;
+
+        PieChartView(android.content.Context context, List<String> labels, List<Long> values, long total) {
+            super(context); this.labels = labels; this.values = values; this.total = total; setClickable(true);
+        }
+
+        void setCategoryListener(CategoryListener listener) { this.listener = listener; }
+
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            float radius = Math.min(getWidth(), getHeight()) * .34f;
+            RectF oval = new RectF(cx - radius, cy - radius, cx + radius, cy + radius);
+            float start = -90f;
+            paint.setStyle(Paint.Style.FILL);
+            for (int i = 0; i < values.size(); i++) {
+                float sweep = values.get(i) * 360f / total;
+                paint.setColor(COLORS[i % COLORS.length]);
+                canvas.drawArc(oval, start, sweep, true, paint);
+                start += sweep;
+            }
+            paint.setColor(PAGE);
+            canvas.drawCircle(cx, cy, radius * .58f, paint);
+            paint.setColor(INK);
+            paint.setTextAlign(Paint.Align.CENTER);
+            paint.setTypeface(Typeface.DEFAULT_BOLD);
+            paint.setTextSize(dp(16));
+            canvas.drawText(Format.money(total), cx, cy + dp(5), paint);
+            paint.setTextSize(dp(11));
+            paint.setTypeface(Typeface.DEFAULT);
+            canvas.drawText("TỔNG CHI", cx, cy + dp(23), paint);
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent event) {
+            if (event.getAction() != MotionEvent.ACTION_UP) return true;
+            float cx = getWidth() / 2f, cy = getHeight() / 2f;
+            float dx = event.getX() - cx, dy = event.getY() - cy;
+            float radius = Math.min(getWidth(), getHeight()) * .34f;
+            float distance = (float)Math.sqrt(dx * dx + dy * dy);
+            if (distance < radius * .58f || distance > radius) return true;
+            double angle = Math.toDegrees(Math.atan2(dy, dx)) + 90d;
+            if (angle < 0) angle += 360d;
+            double cursor = 0;
+            for (int i = 0; i < values.size(); i++) {
+                cursor += values.get(i) * 360d / total;
+                if (angle <= cursor) {
+                    if (listener != null) listener.onSelected(labels.get(i), values.get(i));
+                    break;
+                }
+            }
+            return true;
+        }
+    }
+
+    private interface CategoryListener { void onSelected(String label, long amount); }
+
     private LinearLayout stat(String label,String value){LinearLayout b=new LinearLayout(this);b.setOrientation(LinearLayout.VERTICAL);b.addView(text(label,12,MUTED,true));b.addView(text(value,18,INK,true));return b;}
     private TextView text(String s,int size,int color,boolean bold){TextView v=new TextView(this);v.setText(s);v.setTextSize(size);v.setTextColor(color);if(bold)v.setTypeface(Typeface.DEFAULT_BOLD);return v;}
     private GradientDrawable card(int fill,int stroke){GradientDrawable g=new GradientDrawable();g.setColor(fill);g.setCornerRadius(dp(14));g.setStroke(dp(1),stroke);return g;}

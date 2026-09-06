@@ -356,6 +356,111 @@ final class BudgetStore {
         prefs.edit().putString(key, array.toString()).apply();
     }
 
+    /** Export money data and choices, intentionally excluding the Gemini API key. */
+    JSONObject exportData() {
+        JSONObject backup = new JSONObject();
+        try {
+            backup.put("format", "tro-ly-chi-tieu");
+            backup.put("version", 1);
+            backup.put("exportedAt", System.currentTimeMillis());
+            backup.put("history", items());
+
+            JSONArray sourceArray = new JSONArray();
+            for (String value : sources()) sourceArray.put(value);
+            backup.put("sources", sourceArray);
+
+            JSONArray categoryArray = new JSONArray();
+            for (String value : categories()) categoryArray.put(value);
+            backup.put("categories", categoryArray);
+
+            JSONObject budgets = new JSONObject();
+            JSONObject excluded = new JSONObject();
+            for (Map.Entry<String, ?> entry : prefs.getAll().entrySet()) {
+                String key = entry.getKey();
+                Object value = entry.getValue();
+                if (key.endsWith("_limit") && value instanceof Long) {
+                    budgets.put(key.substring(0, key.length() - "_limit".length()), ((Long) value).longValue());
+                } else if (key.startsWith(EXCLUDED_DAYS_PREFIX) && value instanceof String) {
+                    String month = key.substring(EXCLUDED_DAYS_PREFIX.length());
+                    excluded.put(month, new JSONArray((String) value));
+                }
+            }
+            backup.put("budgets", budgets);
+            backup.put("excludedDays", excluded);
+            backup.put("defaultSource", prefs.getString("default_source", ""));
+        } catch (Exception ignored) {
+        }
+        return backup;
+    }
+
+    /**
+     * Import is additive: existing transactions and settings are never overwritten.
+     * Returns the number of newly added transactions.
+     */
+    int importData(String json) throws Exception {
+        JSONObject backup = new JSONObject(json);
+        JSONArray imported = backup.optJSONArray("history");
+        JSONArray all = items();
+        int added = 0;
+        if (imported != null) {
+            for (int i = 0; i < imported.length(); i++) {
+                JSONObject candidate = imported.optJSONObject(i);
+                if (candidate == null || candidate.optLong("amount", 0) <= 0 || candidate.optString("date", "").isEmpty()) continue;
+                boolean duplicate = false;
+                for (int j = 0; j < all.length(); j++) {
+                    if (sameItem(all.getJSONObject(j), candidate)) { duplicate = true; break; }
+                }
+                if (!duplicate) { all.put(new JSONObject(candidate.toString())); added++; }
+            }
+        }
+        prefs.edit().putString(HISTORY_KEY, all.toString()).apply();
+
+        mergeImportedOptions(SOURCES_KEY, DEFAULT_SOURCES, backup.optJSONArray("sources"));
+        mergeImportedOptions(CATEGORIES_KEY, DEFAULT_CATEGORIES, backup.optJSONArray("categories"));
+
+        JSONObject budgets = backup.optJSONObject("budgets");
+        if (budgets != null) {
+            JSONArray names = budgets.names();
+            if (names != null) for (int i = 0; i < names.length(); i++) {
+                String month = names.optString(i, "");
+                if (!month.isEmpty() && !prefs.contains(month + "_limit")) {
+                    prefs.edit().putLong(month + "_limit", budgets.optLong(month, 0)).apply();
+                }
+            }
+        }
+
+        JSONObject excluded = backup.optJSONObject("excludedDays");
+        if (excluded != null) {
+            JSONArray names = excluded.names();
+            if (names != null) for (int i = 0; i < names.length(); i++) {
+                String monthText = names.optString(i, "");
+                try {
+                    YearMonth month = YearMonth.parse(monthText);
+                    Set<String> merged = excludedDays(month);
+                    JSONArray dates = excluded.optJSONArray(monthText);
+                    if (dates != null) for (int j = 0; j < dates.length(); j++) {
+                        String date = dates.optString(j, "");
+                        if (date.startsWith(monthText)) merged.add(date);
+                    }
+                    setExcludedDays(month, merged);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        String defaultSource = backup.optString("defaultSource", "");
+        if (!defaultSource.isEmpty() && !prefs.contains("default_source")) setDefaultSource(defaultSource);
+        return added;
+    }
+
+    private void mergeImportedOptions(String key, String[] defaults, JSONArray imported) {
+        List<String> merged = readOptions(key, defaults, null);
+        if (imported != null) for (int i = 0; i < imported.length(); i++) {
+            String value = imported.optString(i, "").trim();
+            if (!value.isEmpty() && !containsIgnoreCase(merged, value)) merged.add(value);
+        }
+        writeOptions(key, merged);
+    }
+
     private JSONArray readHistoryOrMigrate() {
         String saved = prefs.getString(HISTORY_KEY, null);
         if (saved != null) {
