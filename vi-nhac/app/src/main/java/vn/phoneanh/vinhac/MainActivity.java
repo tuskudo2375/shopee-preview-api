@@ -319,7 +319,15 @@ public class MainActivity extends Activity {
 
     private View dayHeader(String isoDate,long total){LocalDate date=LocalDate.parse(isoDate);String label=date.equals(LocalDate.now())?"Hôm nay":date.format(DateTimeFormatter.ofPattern("EEEE, dd/MM",new Locale("vi","VN")));LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.addView(text(label,15,INK,true),new LinearLayout.LayoutParams(0,-2,1));row.addView(text("Tổng "+Format.money(total),14,MUTED,true));return row;}
     private long dayTotal(JSONArray items,String date){long total=0;for(int i=0;i<items.length();i++)try{JSONObject o=items.getJSONObject(i);if(date.equals(o.getString("date"))&&(filterSources.isEmpty()||filterSources.contains(o.optString("source","Tiền Mặt")))&&(filterCategory==null||filterCategory.equals(o.optString("category","Chưa gắn thẻ"))))total+=o.getLong("amount");}catch(Exception ignored){}return total;}
-    private View expense(JSONObject o)throws Exception{LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(14),dp(12),dp(14),dp(12));row.setBackground(card(CARD,0xffe5e5e8));LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);words.addView(text(o.getString("note"),16,INK,true));LinearLayout meta=new LinearLayout(this);meta.setGravity(Gravity.CENTER_VERTICAL);meta.addView(chip(o.optString("category","Chưa gắn thẻ"),0xffeaf7ef,GREEN,v->editExpenseCategory(o)),new LinearLayout.LayoutParams(-2,dp(30)));meta.addView(chip(o.optString("source","Tiền Mặt"),0xfff1f1f1,MUTED,v->editExpenseSource(o)),new LinearLayout.LayoutParams(-2,dp(30)));words.addView(meta);TextView date=text("• "+(LocalDate.now().toString().equals(o.getString("date"))?"Hôm nay":o.getString("date")),13,MUTED,false);date.setPadding(dp(6),0,0,0);words.addView(date,new LinearLayout.LayoutParams(-1,dp(24)));row.addView(words,new LinearLayout.LayoutParams(0,-2,1));row.addView(text("−"+Format.money(o.getLong("amount")),16,RED,true));row.setOnClickListener(v->expenseDialog(o));return row;}
+    private View expense(JSONObject o)throws Exception{
+        boolean needsNote=o.optBoolean("needsNote",false);
+        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(14),dp(12),dp(14),dp(12));row.setBackground(card(needsNote?0xffffeeee:CARD,needsNote?RED:0xffe5e5e8));
+        LinearLayout words=new LinearLayout(this);words.setOrientation(LinearLayout.VERTICAL);
+        words.addView(text((needsNote?"⚠ ":"")+o.getString("note"),16,needsNote?RED:INK,true));
+        if(needsNote) words.addView(text("⚠ CHƯA GHI CHÚ",11,RED,true),top(3));
+        LinearLayout meta=new LinearLayout(this);meta.setGravity(Gravity.CENTER_VERTICAL);meta.addView(chip(o.optString("category","Chưa gắn thẻ"),0xffeaf7ef,GREEN,v->editExpenseCategory(o)),new LinearLayout.LayoutParams(-2,dp(30)));meta.addView(chip(o.optString("source","Tiền Mặt"),0xfff1f1f1,MUTED,v->editExpenseSource(o)),new LinearLayout.LayoutParams(-2,dp(30)));words.addView(meta);
+        TextView date=text("• "+(LocalDate.now().toString().equals(o.getString("date"))?"Hôm nay":o.getString("date")),13,MUTED,false);date.setPadding(dp(6),0,0,0);words.addView(date,new LinearLayout.LayoutParams(-1,dp(24)));row.addView(words,new LinearLayout.LayoutParams(0,-2,1));row.addView(text("−"+Format.money(o.getLong("amount")),16,RED,true));row.setOnClickListener(v->expenseDialog(o));return row;
+    }
 
     private TextView chip(String label,int fill,int color,View.OnClickListener listener){TextView v=text(label,12,color,true);v.setGravity(Gravity.CENTER);v.setPadding(dp(10),0,dp(10),0);v.setSingleLine(true);v.setBackground(card(fill,0x00ffffff));v.setOnClickListener(listener);return v;}
 
@@ -370,7 +378,13 @@ public class MainActivity extends Activity {
         box.addView(text("Sao lưu dữ liệu để đổi APK không sợ mất lịch sử",14,MUTED,true),top(14));
         Button exportButton=new Button(this);exportButton.setText("XUẤT DỮ LIỆU RA FILE");box.addView(exportButton,top(3));
         Button importButton=new Button(this);importButton.setText("NHẬP DỮ LIỆU TỪ FILE");box.addView(importButton,top(2));
-        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tùy chỉnh").setView(box).setNegativeButton("Hủy",null).setNeutralButton("XÓA API",(d,w)->{new SecretStore(this).setApiKey("");draw();}).setPositiveButton("LƯU",(d,w)->{String value=key.getText().toString().trim();if(!value.isEmpty())new SecretStore(this).setApiKey(value);int id=group.getCheckedRadioButtonId();RadioButton checked=group.findViewById(id);String theme=checked==null?"system":(checked.getText().toString().equals("Sáng")?"light":checked.getText().toString().equals("Tối")?"dark":"system");getSharedPreferences("settings",MODE_PRIVATE).edit().putString("theme",theme).apply();draw();}).create();
+        ScrollView settingsScroll=new ScrollView(this);
+        settingsScroll.setFillViewport(true);
+        settingsScroll.setVerticalScrollBarEnabled(true);
+        settingsScroll.addView(box,new FrameLayout.LayoutParams(-1,-2));
+        int contentHeight=Math.round(getResources().getDisplayMetrics().heightPixels*.58f);
+        settingsScroll.setLayoutParams(new LinearLayout.LayoutParams(-1,contentHeight));
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Tùy chỉnh").setView(settingsScroll).setNegativeButton("Hủy",null).setNeutralButton("XÓA API",(d,w)->{new SecretStore(this).setApiKey("");draw();}).setPositiveButton("LƯU",(d,w)->{String value=key.getText().toString().trim();if(!value.isEmpty())new SecretStore(this).setApiKey(value);int id=group.getCheckedRadioButtonId();RadioButton checked=group.findViewById(id);String theme=checked==null?"system":(checked.getText().toString().equals("Sáng")?"light":checked.getText().toString().equals("Tối")?"dark":"system");getSharedPreferences("settings",MODE_PRIVATE).edit().putString("theme",theme).apply();draw();}).create();
         calendarButton.setOnClickListener(v->{dialog.dismiss();spendingCalendarDialog(YearMonth.now());});
         sourceButton.setOnClickListener(v->{dialog.dismiss();optionManagerDialog(true);});
         categoryButton.setOnClickListener(v->{dialog.dismiss();optionManagerDialog(false);});

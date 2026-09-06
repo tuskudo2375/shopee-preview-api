@@ -82,6 +82,7 @@ final class BudgetStore {
             item.put("time", System.currentTimeMillis());
             item.put("source", source == null || source.isEmpty() ? defaultSource() : source);
             item.put("notificationEventId", eventId);
+            item.put("needsNote", true);
             items.put(item);
 
             seen.put(eventId);
@@ -117,6 +118,7 @@ final class BudgetStore {
                 JSONObject item = all.getJSONObject(i);
                 if (sameItem(item, target)) {
                     item.put(field, value);
+                    if ("note".equals(field)) item.put("needsNote", false);
                     prefs.edit().putString(HISTORY_KEY, all.toString()).apply();
                     return true;
                 }
