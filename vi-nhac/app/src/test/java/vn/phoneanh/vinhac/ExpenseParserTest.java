@@ -13,6 +13,10 @@ public class ExpenseParserTest {
         ExpenseParser.Result lunchByBank = ExpenseParser.parse("ăn trưa 30k chuyển khoản");
         assertEquals("Ăn uống", lunchByBank.category);
         assertEquals("Chuyển khoản", lunchByBank.source);
+        assertEquals("Ăn uống", ExpenseParser.parse("ăn trưa 25k bank").category);
+        assertEquals("Chuyển khoản", ExpenseParser.parse("ăn trưa 25k bank").source);
+        assertEquals("Thẻ TP", ExpenseParser.parse("cà hê 25k TP").source);
+        assertEquals("Ăn uống", ExpenseParser.parse("cà hê 25k TP").category);
     }
     private void assertParsed(String raw, long amount, String category) {
         ExpenseParser.Result result = ExpenseParser.parse(raw);
