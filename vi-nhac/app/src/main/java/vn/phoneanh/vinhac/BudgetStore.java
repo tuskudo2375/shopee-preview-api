@@ -65,6 +65,39 @@ final class BudgetStore {
         }
     }
 
+    /** Adds one bank-notification transaction only once, even if the notification is reposted. */
+    synchronized boolean addFromNotification(String eventId, ExpenseParser.Result r, String raw, String source) {
+        if (eventId == null || eventId.trim().isEmpty()) return false;
+        try {
+            JSONArray seen = new JSONArray(prefs.getString("notification_event_ids", "[]"));
+            for (int i = 0; i < seen.length(); i++) if (eventId.equals(seen.optString(i))) return false;
+
+            JSONArray items = items();
+            JSONObject item = new JSONObject();
+            item.put("amount", r.amount);
+            item.put("category", r.category);
+            item.put("note", r.note);
+            item.put("raw", raw);
+            item.put("date", LocalDate.now().toString());
+            item.put("time", System.currentTimeMillis());
+            item.put("source", source == null || source.isEmpty() ? defaultSource() : source);
+            item.put("notificationEventId", eventId);
+            items.put(item);
+
+            seen.put(eventId);
+            while (seen.length() > 300) {
+                JSONArray trimmed = new JSONArray();
+                for (int i = 1; i < seen.length(); i++) trimmed.put(seen.optString(i));
+                seen = trimmed;
+            }
+            prefs.edit().putString(HISTORY_KEY, items.toString())
+                    .putString("notification_event_ids", seen.toString()).apply();
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     boolean updateCategory(JSONObject target, String category) {
         return updateText(target, "category", category);
     }

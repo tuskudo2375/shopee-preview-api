@@ -20,6 +20,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -363,6 +364,9 @@ public class MainActivity extends Activity {
         Button calendarButton=new Button(this);calendarButton.setText("LỊCH NGÀY CHI TIÊU / NGÀY OFF");box.addView(calendarButton,top(4));
         Button sourceButton=new Button(this);sourceButton.setText("QUẢN LÝ NGUỒN TIỀN");box.addView(sourceButton,top(2));
         Button categoryButton=new Button(this);categoryButton.setText("QUẢN LÝ DANH MỤC");box.addView(categoryButton,top(2));
+        box.addView(text("Tự động lấy giao dịch từ thông báo ngân hàng",14,MUTED,true),top(14));
+        Button notificationButton=new Button(this);notificationButton.setText(notificationListenerEnabled()?"ĐÃ BẬT ĐỌC THÔNG BÁO":"BẬT ĐỌC THÔNG BÁO NGÂN HÀNG");box.addView(notificationButton,top(3));
+        box.addView(text("Chỉ tạo khoản chi khi thông báo có dấu hiệu trừ tiền. Android sẽ hiển thị các app có thể cấp quyền đọc thông báo; ní chỉ bật khi thấy phù hợp.",12,MUTED,false),top(2));
         box.addView(text("Sao lưu dữ liệu để đổi APK không sợ mất lịch sử",14,MUTED,true),top(14));
         Button exportButton=new Button(this);exportButton.setText("XUẤT DỮ LIỆU RA FILE");box.addView(exportButton,top(3));
         Button importButton=new Button(this);importButton.setText("NHẬP DỮ LIỆU TỪ FILE");box.addView(importButton,top(2));
@@ -370,9 +374,17 @@ public class MainActivity extends Activity {
         calendarButton.setOnClickListener(v->{dialog.dismiss();spendingCalendarDialog(YearMonth.now());});
         sourceButton.setOnClickListener(v->{dialog.dismiss();optionManagerDialog(true);});
         categoryButton.setOnClickListener(v->{dialog.dismiss();optionManagerDialog(false);});
+        notificationButton.setOnClickListener(v->{dialog.dismiss();try{startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));}catch(Exception ignored){startActivity(new Intent(Settings.ACTION_SETTINGS));}});
         exportButton.setOnClickListener(v->{dialog.dismiss();Intent intent=new Intent(Intent.ACTION_CREATE_DOCUMENT);intent.setType("application/json");intent.putExtra(Intent.EXTRA_TITLE,"tro-ly-chi-tieu-backup.json");startActivityForResult(intent,EXPORT_REQUEST);});
         importButton.setOnClickListener(v->{dialog.dismiss();Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);intent.setType("application/json");startActivityForResult(intent,IMPORT_REQUEST);});
         dialog.show();
+    }
+
+    private boolean notificationListenerEnabled(){
+        String enabled=Settings.Secure.getString(getContentResolver(),"enabled_notification_listeners");
+        if(enabled==null)return false;
+        String component=new android.content.ComponentName(this,BankNotificationListenerService.class).flattenToString();
+        return enabled.contains(component);
     }
 
     private void budgetDialog(){
