@@ -236,7 +236,8 @@ public class MainActivity extends Activity {
         PieChartView chart = new PieChartView(this, labels, values, total);
         chart.setMinimumHeight(dp(280));
         chart.setBackground(card(CARD, 0xffe5e5e8));
-        chart.setCategoryListener((label, amount) -> selection.setText(label + " • " + Format.money(amount) + " • " + percent(amount, total)));
+        final long chartTotal = total;
+        chart.setCategoryListener((label, amount) -> selection.setText(label + " • " + Format.money(amount) + " • " + percent(amount, chartTotal)));
         root.addView(chart, top(14));
         root.addView(selection, top(8));
 
