@@ -66,20 +66,29 @@ final class BudgetStore {
     }
 
     /** Adds one bank-notification transaction only once, even if the notification is reposted. */
-    synchronized boolean addFromNotification(String eventId, ExpenseParser.Result r, String raw, String source) {
+    synchronized boolean addFromNotification(String eventId, String legacyId, ExpenseParser.Result r, String raw, String source, long time) {
         if (eventId == null || eventId.trim().isEmpty()) return false;
         try {
             JSONArray seen = new JSONArray(prefs.getString("notification_event_ids", "[]"));
-            for (int i = 0; i < seen.length(); i++) if (eventId.equals(seen.optString(i))) return false;
+            for (int i = 0; i < seen.length(); i++) {
+                String id = seen.optString(i);
+                if (eventId.equals(id) || legacyId.equals(id)) return false;
+            }
 
             JSONArray items = items();
+            for (int i = 0; i < items.length(); i++) {
+                String id = items.optJSONObject(i).optString("notificationEventId");
+                if (eventId.equals(id) || legacyId.equals(id)) return false;
+            }
+            LocalDate date = Instant.ofEpochMilli(time).atZone(ZoneId.systemDefault()).toLocalDate();
+            if (date.isBefore(YearMonth.now().minusMonths(5).atDay(1)) || date.isAfter(LocalDate.now())) return false;
             JSONObject item = new JSONObject();
             item.put("amount", r.amount);
             item.put("category", r.category);
             item.put("note", r.note);
             item.put("raw", raw);
-            item.put("date", LocalDate.now().toString());
-            item.put("time", System.currentTimeMillis());
+            item.put("date", date.toString());
+            item.put("time", time);
             item.put("source", source == null || source.isEmpty() ? defaultSource() : source);
             item.put("notificationEventId", eventId);
             item.put("needsNote", true);

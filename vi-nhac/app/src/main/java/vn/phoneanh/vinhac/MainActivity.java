@@ -79,7 +79,23 @@ public class MainActivity extends Activity {
         else root.postDelayed(this::maybePromptSpendingDays, 350);
     }
 
-    @Override protected void onResume() { super.onResume(); if (root != null) { draw(); root.postDelayed(this::maybePromptSpendingDays, 350); } }
+    private final SharedPreferences.OnSharedPreferenceChangeListener historyChanges = (prefs, key) -> {
+        if ("expense_history_6m".equals(key) && root != null && !(getCurrentFocus() instanceof EditText)) {
+            runOnUiThread(this::draw);
+        }
+    };
+
+    @Override protected void onResume() {
+        super.onResume();
+        getSharedPreferences("budget", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(historyChanges);
+        if (notificationListenerEnabled()) BankNotificationListenerService.rescan(this);
+        if (root != null) { draw(); root.postDelayed(this::maybePromptSpendingDays, 350); }
+    }
+
+    @Override protected void onPause() {
+        getSharedPreferences("budget", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(historyChanges);
+        super.onPause();
+    }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -390,6 +406,14 @@ public class MainActivity extends Activity {
         Button categoryButton=new Button(this);categoryButton.setText("QUẢN LÝ DANH MỤC");box.addView(categoryButton,top(2));
         box.addView(text("Tự động lấy giao dịch từ thông báo ngân hàng",14,MUTED,true),top(14));
         Button notificationButton=new Button(this);notificationButton.setText(notificationListenerEnabled()?"ĐÃ BẬT ĐỌC THÔNG BÁO":"BẬT ĐỌC THÔNG BÁO NGÂN HÀNG");box.addView(notificationButton,top(3));
+        TextView listenerStatus=text(listenerStatusText(),12,MUTED,false);box.addView(listenerStatus,top(3));
+        Button scanButton=new Button(this);scanButton.setText("QUÉT LẠI THÔNG BÁO ĐANG CÓ");box.addView(scanButton,top(3));
+        scanButton.setOnClickListener(v->{
+            if(!notificationListenerEnabled()) {Toast.makeText(this,"Hãy bật quyền đọc thông báo trước",Toast.LENGTH_LONG).show();return;}
+            String result=BankNotificationListenerService.rescan(this);
+            listenerStatus.setText(listenerStatusText());
+            Toast.makeText(this,result,Toast.LENGTH_LONG).show();
+        });
         box.addView(text("Chỉ tạo khoản chi khi thông báo có dấu hiệu trừ tiền. Android sẽ hiển thị các app có thể cấp quyền đọc thông báo; ní chỉ bật khi thấy phù hợp.",12,MUTED,false),top(2));
         box.addView(text("Sao lưu dữ liệu để đổi APK không sợ mất lịch sử",14,MUTED,true),top(14));
         Button exportButton=new Button(this);exportButton.setText("XUẤT DỮ LIỆU RA FILE");box.addView(exportButton,top(3));
@@ -411,10 +435,19 @@ public class MainActivity extends Activity {
     }
 
     private boolean notificationListenerEnabled(){
+        android.app.NotificationManager manager=getSystemService(android.app.NotificationManager.class);
+        android.content.ComponentName component=new android.content.ComponentName(this,BankNotificationListenerService.class);
+        if(Build.VERSION.SDK_INT>=27)return manager.isNotificationListenerAccessGranted(component);
         String enabled=Settings.Secure.getString(getContentResolver(),"enabled_notification_listeners");
         if(enabled==null)return false;
-        String component=new android.content.ComponentName(this,BankNotificationListenerService.class).flattenToString();
-        return enabled.contains(component);
+        for(String value:enabled.split(":"))if(component.equals(android.content.ComponentName.unflattenFromString(value)))return true;
+        return false;
+    }
+
+    private String listenerStatusText(){
+        if(!notificationListenerEnabled())return "Chưa cấp quyền đọc thông báo";
+        return (BankNotificationListenerService.isConnected()?"Đang kết nối đọc thông báo":"Đã cấp quyền nhưng chưa kết nối — thử tắt/bật lại quyền")
+                + "\n" + BankNotificationListenerService.scanStatus();
     }
 
     private void budgetDialog(){

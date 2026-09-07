@@ -1,13 +1,19 @@
 package titus.expenseassistant;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Reads only likely debit notifications; incoming/refund notifications are ignored. */
+/** Currency must belong to the debit amount, never an account number or balance. */
 final class NotificationExpenseParser {
-    private static final Pattern MONEY = Pattern.compile("(?i)(-?\\s*\\d[\\d.,]{0,18})\\s*(vnd|vnđ|₫|đ|dong|k|nghin|ngàn|ngan)?");
+    private static final Pattern MONEY = Pattern.compile(
+            "(?<![a-z0-9])([+-]?)\\s*(?:(vnd|₫|d)\\s*)?(\\d+(?:[.,]\\d+)*)(?:\\s*(vnd|₫|d)(?![a-z]))?");
+    private static final Pattern NON_TRANSACTION = Pattern.compile(
+            "(?:so du|balance|con lai|han muc|available|tai khoan|account|ma gd|otp)[^0-9\\n;•]{0,24}$");
+    private static final Pattern DEBIT_CONTEXT = Pattern.compile(
+            "(?:thanh toan|chi tieu|mua hang|da su dung|trich no|bi tru|da tru|debit(?:ed)?|payment|spent|paid)(?:[^0-9\\n;•]{0,45})$");
 
     private NotificationExpenseParser() {}
 
@@ -15,100 +21,73 @@ final class NotificationExpenseParser {
                                       List<String> categories, List<String> sources) {
         String safeTitle = title == null ? "" : title.trim();
         String safeBody = body == null ? "" : body.trim();
-        String combined = (safeTitle + " " + safeBody).trim();
-        String plain = ExpenseParser.plain(combined.toLowerCase(Locale.ROOT));
-        if (combined.isEmpty() || isIncoming(plain) || !isDebit(plain)) return null;
+        String combined = safeTitle + "\n" + safeBody;
+        String plain = normalize(combined);
+        if (has(plain, "nhan tien", "ghi co", "cong tien", "hoan tien", "refund", "cashback",
+                "nap tien", "incoming", "received", "chuyen den", "that bai", "khong thanh cong",
+                "failed", "declined", "tu choi", "uu dai", "khuyen mai")) return null;
 
-        Candidate best = findAmount(combined, plain);
-        if (best == null || best.amount <= 0) return null;
-
-        String source = findSource(combined, packageName, sources);
-        // Do not silently classify an unknown bank notification as cash.
-        if (source.isEmpty()) return null;
-
-        ExpenseParser.Result classified = ExpenseParser.parse(combined, categories, sources);
-        String note = compact(safeTitle.isEmpty() ? safeBody : safeTitle + " • " + safeBody);
-        return new ExpenseParser.Result(best.amount, classified.category, note, source);
-    }
-
-    private static Candidate findAmount(String raw, String plain) {
-        Matcher matcher = MONEY.matcher(raw);
-        Candidate best = null;
+        Matcher matcher = MONEY.matcher(plain);
+        long amount = 0;
+        int bestScore = 0;
         while (matcher.find()) {
-            String number = matcher.group(1).replace(" ", "");
-            String unit = matcher.group(2) == null ? "" : ExpenseParser.plain(matcher.group(2).toLowerCase(Locale.ROOT));
-            String before = ExpenseParser.plain(raw.substring(Math.max(0, matcher.start() - 70), matcher.start()).toLowerCase(Locale.ROOT));
-            String after = ExpenseParser.plain(raw.substring(matcher.end(), Math.min(raw.length(), matcher.end() + 30)).toLowerCase(Locale.ROOT));
-            String context = before + " " + after;
-            boolean negative = number.startsWith("-");
-            if (number.startsWith("-")) number = number.substring(1);
-            long amount = parseNumber(number, unit, !unit.isEmpty());
-            if (amount <= 0) continue;
-            boolean hasCurrency = !unit.isEmpty();
-            boolean hasDebitContext = has(context, "so tien", "gia tri", "thanh toan", "payment", "amount", "tru", "trich", "debit", "chi tieu", "mua hang", "da su dung");
-            if (!hasCurrency && !negative && !hasDebitContext) continue;
-
-            int score = 0;
-            if (hasCurrency) score += 4;
-            if (negative) score += 5;
-            if (hasDebitContext) score += 6;
-            if (has(before, "so du", "balance", "con lai", "han muc", "available")) score -= 9;
-            if (has(after, "so du", "balance", "con lai", "han muc", "available")) score -= 6;
-            if (amount > 2_000_000_000L) score -= 4;
-            Candidate candidate = new Candidate(amount, score);
-            if (best == null || candidate.score > best.score) best = candidate;
+            if (matcher.group(2) == null && matcher.group(4) == null) continue;
+            if ("+".equals(matcher.group(1))) continue;
+            String before = plain.substring(Math.max(0, matcher.start() - 90), matcher.start());
+            if (NON_TRANSACTION.matcher(before).find()) continue;
+            boolean negative = "-".equals(matcher.group(1));
+            if (!negative && !DEBIT_CONTEXT.matcher(before).find()) continue;
+            long candidate = parseNumber(matcher.group(3));
+            if (candidate <= 0) continue;
+            int score = negative ? 2 : 1;
+            if (score > bestScore) { amount = candidate; bestScore = score; }
+            else if (score == bestScore && candidate != amount) return null; // Multiple debits: ambiguous.
         }
-        return best;
+        if (amount == 0) return null;
+        String source = findSource(plain, packageName, sources);
+        if (source.isEmpty()) return null;
+        ExpenseParser.Result classified = ExpenseParser.parse(safeBody, categories, sources);
+        String note = combined.replaceAll("\\s+", " ").trim();
+        if (note.length() > 180) note = note.substring(0, 177) + "...";
+        return new ExpenseParser.Result(amount, classified.category, note, source);
     }
 
-    private static long parseNumber(String raw, String unit, boolean hasUnit) {
-        String number = raw.replace(" ", "");
+    private static long parseNumber(String raw) {
         try {
-            double value;
-            if (number.matches("\\d+[.,]\\d{3}(?:[.,]\\d{3})*")) value = Double.parseDouble(number.replaceAll("[.,]", ""));
-            else value = Double.parseDouble(number.replace(',', '.'));
-            if ("k".equals(unit) || "nghin".equals(unit) || "ngan".equals(unit) || "ngan".equals(unit)) value *= 1000;
-            else if ("tr".equals(unit) || "trieu".equals(unit)) value *= 1_000_000;
-            else if (!hasUnit && value < 1000) value *= 1000;
-            return Math.round(value);
-        } catch (Exception ignored) {
-            return 0;
-        }
+            String number = raw;
+            if (raw.matches("\\d{1,3}(?:[.,]\\d{3})+")) number = raw.replaceAll("[.,]", "");
+            else if (raw.matches("\\d{1,3}(?:,\\d{3})+\\.\\d{2}")) number = raw.replace(",", "");
+            else if (raw.matches("\\d{1,3}(?:\\.\\d{3})+,\\d{2}")) number = raw.replace(".", "").replace(',', '.');
+            else if (raw.matches("\\d+[.,]\\d{1,2}")) number = raw.replace(',', '.');
+            else if (!raw.matches("\\d+")) return 0;
+            return new BigDecimal(number).longValueExact();
+        } catch (ArithmeticException | NumberFormatException ignored) { return 0; }
     }
 
-    private static String findSource(String raw, String packageName, List<String> sources) {
-        String all = ExpenseParser.plain(((packageName == null ? "" : packageName) + " " + raw).toLowerCase(Locale.ROOT));
-        String explicit = ExpenseParser.explicitSource(all, sources);
-        if (!explicit.isEmpty()) return explicit;
-        if (has(all, "techcombank", "tcb", "the tech")) return ExpenseParser.explicitSource("tech", sources);
-        if (has(all, "tpbank", "tp bank", "the tp")) return ExpenseParser.explicitSource("tp", sources);
-        if (has(all, "vib", "the vib")) return ExpenseParser.explicitSource("vib", sources);
-        if (has(all, "tai khoan", " tk ", "chuyen khoan", "banking", "transfer", "trich no tai khoan")) return ExpenseParser.explicitSource("bank", sources);
+    private static String findSource(String text, String packageName, List<String> sources) {
+        String bank = normalize(packageName == null ? "" : packageName) + " " + text;
+        // A bank's brand is not evidence of a credit-card transaction.
+        boolean card = Pattern.compile("\\b(the|card|credit)\\b").matcher(text).find();
+        if (card) {
+            if (has(bank, "techcombank", "tcb", "the tech")) return ExpenseParser.explicitSource("tech", sources);
+            if (has(bank, "tpbank", "tp bank", "the tp")) return ExpenseParser.explicitSource("tp", sources);
+            if (has(bank, "vib")) return ExpenseParser.explicitSource("vib", sources);
+            return "";
+        }
+        if (has(text, "tai khoan", "account", "so du", "balance", "bien dong", "chuyen khoan", "transfer")
+                || has(bank, "techcombank", "tpbank", "com.mbmobile", "vib")) {
+            return ExpenseParser.explicitSource("bank", sources);
+        }
         return "";
     }
 
-    private static boolean isDebit(String text) {
-        return has(text, "tru", "trich no", "thanh toan", "chi tieu", "mua hang", "debit", "payment", "da su dung", "giao dich thanh cong", "transaction")
-                || text.contains("-");
-    }
-
-    private static boolean isIncoming(String text) {
-        return has(text, "nhan tien", "ghi co", "cong tien", "hoan tien", "refund", "cashback", "nap tien", "incoming", "received", "chuyen den");
+    private static String normalize(String text) {
+        return ExpenseParser.plain(text.toLowerCase(Locale.ROOT)).replace('\u2212', '-').replace('\u2013', '-')
+                .replace('\u00a0', ' ').replace('\u202f', ' ');
     }
 
     private static boolean has(String text, String... words) {
         for (String word : words) if (text.contains(word)) return true;
         return false;
-    }
-
-    private static String compact(String value) {
-        String result = value.replaceAll("\\s+", " ").trim();
-        return result.length() > 180 ? result.substring(0, 177) + "..." : result;
-    }
-
-    private static final class Candidate {
-        final long amount;
-        final int score;
-        Candidate(long amount, int score) { this.amount = amount; this.score = score; }
     }
 }
