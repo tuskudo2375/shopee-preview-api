@@ -11,9 +11,9 @@ final class NotificationExpenseParser {
     private static final Pattern MONEY = Pattern.compile(
             "(?<![a-z0-9])([+-]?)\\s*(?:(vnd|₫|d)\\s*)?(\\d+(?:[.,]\\d+)*)(?:\\s*(vnd|₫|d)(?![a-z]))?");
     private static final Pattern NON_TRANSACTION = Pattern.compile(
-            "(?:so du|balance|con lai|han muc|available|tai khoan|account|ma gd|otp)[^0-9\\n;•]{0,24}$");
+            "(?:so du|balance|con lai|han muc|available|tai khoan|account|ma gd|otp)[^0-9\\n;•]{0,24}\\z");
     private static final Pattern DEBIT_CONTEXT = Pattern.compile(
-            "(?:thanh toan|chi tieu|mua hang|da su dung|trich no|bi tru|da tru|debit(?:ed)?|payment|spent|paid)(?:[^0-9\\n;•]{0,45})$");
+            "(?:thanh toan|chi tieu|mua hang|da su dung|trich no|bi tru|da tru|debit(?:ed)?|payment|spent|paid)(?:[^0-9\\n;•]{0,45})\\z");
 
     private NotificationExpenseParser() {}
 

@@ -44,6 +44,7 @@ public class NotificationExpenseParserTest {
     @Test public void supportsWholeDongDecimalsAndRejectsAmbiguity() {
         assertEquals(30000, parse("- VND 30,000.00", "Tài khoản 1234", "bank.app").amount);
         assertEquals(30000, parse("-30.000,00 VND", "Tài khoản 1234", "bank.app").amount);
+        assertEquals(30000, parse("Biến động số dư", "-30.000VND", "bank.app").amount);
         assertNull(parse("Biến động số dư", "-30.000VND\n-50.000VND", "bank.app"));
         assertNull(parse("-VND 9999999999999999999999999", "Tài khoản 1234", "bank.app"));
     }
